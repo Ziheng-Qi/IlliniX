@@ -9,6 +9,7 @@
 #include "device.h"
 #include "error.h"
 #include "string.h"
+#include "thread.h"
 
 //           COMPILE-TIME PARAMETERS
 //          
