@@ -321,16 +321,13 @@ int thread_join(int tid)
 {
     // FIXME your goes code here
     // find the child thread
-    int s = intr_disable();
     if (tid < 0 || tid >= NTHR)
     {
-        intr_restore(s);
         return -1;
     }
     struct thread *child = thrtab[tid];
     if (child == NULL || child->parent != CURTHR)
     {
-        intr_restore(s);
         return -1;
     }
 
@@ -340,7 +337,6 @@ int thread_join(int tid)
         condition_wait(&(CURTHR->child_exit));
     }
     recycle_thread(tid);
-    intr_restore(s);
     return tid;
 }
 
@@ -369,8 +365,6 @@ void condition_wait(struct condition *cond)
     saved_intr_state = intr_enable();
 
     suspend_self();
-
-    intr_restore(saved_intr_state);
 }
 
 /**
@@ -386,7 +380,6 @@ void condition_broadcast(struct condition *cond)
 {
     // FIXME your code goes here
     // wakes up all threads waiting on the condition variable
-    int s = intr_disable();
 
     while (!tlempty(&cond->wait_list))
     {
@@ -396,8 +389,6 @@ void condition_broadcast(struct condition *cond)
     }
 
     tlclear(&cond->wait_list);
-
-    intr_restore(s);
 }
 
 // INTERNAL FUNCTION DEFINITIONS
@@ -496,8 +487,6 @@ void suspend_self(void) {
     // 4. Switch to the next thread
     set_thread_state(next_thread, THREAD_RUNNING);
 
-    // intr_restore(s);
-
     // console_printf("Switching from %s to %s\n", CURTHR->name, next_thread->name);
 
     _thread_swtch(next_thread);
@@ -578,7 +567,6 @@ void idle_thread_func(void * arg __attribute__ ((unused))) {
         // more time (make sure it is empty) to avoid a race condition where an
         // ISR marks a thread ready before we call the wfi instruction.
 
-        intr_disable();
         if (tlempty(&ready_list))
             asm ("wfi");
         intr_enable();

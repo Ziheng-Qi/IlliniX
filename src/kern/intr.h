@@ -5,7 +5,6 @@
 #define _INTR_H_
 
 #include "csr.h"
-
 //           EXPORTED CONSTANT DEFINITIONS
 //          
 

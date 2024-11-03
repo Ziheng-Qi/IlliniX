@@ -10,7 +10,8 @@
 #include <stdint.h>
 //           va_list
 #include <stdarg.h>
-
+#include "string.h"
+#include "console.h"
 //           ENOTSUP
 #include "error.h"
 
@@ -179,9 +180,23 @@ extern long
 __attribute__ ((nonnull(1,2)))
 iovprintf(struct io_intf * io, const char * fmt, va_list ap);
 
-//           An I/O literal object allows a block of memory to be treated as file. I/O
-//           operations should be able to be performed via the io_intf associated with 
-//           the io_lit.
+// io_lit functions
+
+extern long
+    __attribute__((nonnull(1, 2)))
+    io_lit_read(struct io_intf *io, void *buf, unsigned long bufsz);
+
+extern void
+    __attribute__((nonnull(1)))
+    lit_io_close(struct io_intf *io);
+
+extern long
+    __attribute__((nonnull(1, 2)))
+    io_lit_write(struct io_intf *io, const void *buf, unsigned long n);
+
+extern int
+    __attribute__((nonnull(1)))
+    io_lit_ioctl(struct io_intf *io, int cmd, void *arg);
 
 extern struct io_intf *
 __attribute__ ((nonnull(1,2)))
@@ -220,7 +235,8 @@ static inline long ioread (
     if (io->ops->read)
         return io->ops->read(io, buf, bufsz);
     else
-        return -ENOTSUP;
+        console_printf("ioread: read not supported\n");
+    return -ENOTSUP;
 }
 
 static inline int ioctl(struct io_intf * io, int cmd, void * arg) {
