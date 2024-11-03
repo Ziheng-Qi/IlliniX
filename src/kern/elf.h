@@ -5,6 +5,7 @@
 #define _ELF_H_
 
 #include "io.h"
+#include "fs.h"
 
 //           arg1: io interface from which to load the elf arg2: pointer to void
 //           (*entry)(struct io_intf *io), which is a function pointer elf_load fills in
