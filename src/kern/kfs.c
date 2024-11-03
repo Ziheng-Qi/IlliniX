@@ -209,12 +209,15 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
   {
     if (io == file_desc_tab[i].io)
     {
+      console_printf("Found the file descriptor\n");
       // Found the file descriptor
       file_t *file = &file_desc_tab[i];
       uint64_t file_position = file->file_position; // Current position in the file
       uint64_t inode_num = file->inode_num;         // Inode number of the file
       // Seek to the inode location in the filesystem
       ioseek(fs_io, fs_base + BLOCK_SIZE + inode_num * BLOCK_SIZE);
+      console_printf("Inode number: %d\n", inode_num);
+      console_printf("Seeking to inode: %d\n", fs_io->ops->ctl(fs_io, IOCTL_GETPOS, NULL));
       // Read the inode data
       inode_t file_inode;
 
@@ -223,18 +226,11 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       uint64_t read_blocks = file_position / BLOCK_SIZE;
       uint64_t read_bytes = file_position % BLOCK_SIZE;
 
-      if (read_blocks == file_inode.byte_len / BLOCK_SIZE)
-      {
-        // If the file is fully read,
-        // return
-        return -1;
-      }
-
-      // Seek to the data block that contains the file data
+            // Seek to the data block that contains the file data
       data_block_t data_block;
       ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
-      // console_printf("Reading from block: %d\n", file_inode.data_block_num[read_blocks]);
-      // console_printf("reading from: %d\n", fs_io->ops->ctl(fs_io, IOCTL_GETPOS, NULL));
+      console_printf("Reading from block: %d\n", file_inode.data_block_num[read_blocks]);
+      console_printf("reading from: %d\n", fs_io->ops->ctl(fs_io, IOCTL_GETPOS, NULL));
       ioread(fs_io, &data_block, BLOCK_SIZE); // Read the data block
 
       uint64_t bytes_read = 0; // Counter for the number of bytes read
@@ -314,7 +310,7 @@ int fs_getpos(file_t *file, void *arg)
 int fs_setpos(file_t *file, void *arg)
 {
 
-  file->file_position = arg;
+  file->file_position = (uint64_t)arg;
   return 0;
 }
 
