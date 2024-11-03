@@ -4,7 +4,12 @@
 #ifndef _FS_H_
 #define _FS_H_
 
+#include "heap.h"
 #include "io.h"
+#include "virtio.h"
+#include "intr.h"
+#include "string.h"
+#include "console.h"
 
 #define BLOCK_SIZE 4096
 #define MAX_DIR_ENTRIES 63

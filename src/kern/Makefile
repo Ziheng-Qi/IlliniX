@@ -33,6 +33,7 @@ CORE_OBJS_NO_VIO = \
 	device.o \
 	console.o \
 	plic.o \
+	elf.o \
 	thrasm.o \
 	thread.o \
 	uart.o \
