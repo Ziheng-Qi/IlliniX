@@ -1,70 +1,141 @@
-#include "fs.h"
-#include "virtio.h"
 #include "console.h"
+#include "thread.h"
+#include "device.h"
+#include "uart.h"
+#include "timer.h"
+#include "intr.h"
+#include "heap.h"
+#include "halt.h"
+#include "elf.h"
+#include "fs.h"
+#include "string.h"
+
+extern char _kimg_end[];
+
+#define RAM_SIZE (8 * 1024 * 1024)
+#define RAM_START 0x80000000UL
+#define KERN_START RAM_START
+#define USER_START 0x80100000UL
+
+#define UART0_IOBASE 0x10000000
+#define UART1_IOBASE 0x10000100
+#define UART0_IRQNO 10
+
+#define VIRT0_IOBASE 0x10001000
+#define VIRT1_IOBASE 0x10002000
+#define VIRT0_IRQNO 1
 
 extern char _companion_f_start[];
-extern char _comapanion_f_end[];
+extern char _companion_f_end[];
+
+static void shell_main(struct io_intf *termio);
 
 int main()
 {
-  // Initialize the io_lit structure for unit testing
-  struct io_lit literature;
-  struct io_intf *io = NULL;
-  io = iolit_init(&literature, _companion_f_start, BLOCK_SIZE * 7);
-  // Initialize the file system
-  // fs_init();
-  // Mount the block device
-  if (io->ops->read == NULL)
+  struct io_intf *termio;
+  int result;
+  void *mmio_base;
+  int i;
+  console_init();
+  devmgr_init();
+  intr_init();
+  thread_init();
+  timer_init();
+
+  heap_init(_kimg_end, (void *)USER_START);
+
+  for (i = 0; i < 2; i++)
   {
-    console_printf("read is NULL\n");
+    mmio_base = (void *)UART0_IOBASE;
+    mmio_base += (UART1_IOBASE - UART0_IOBASE) * i;
+    uart_attach(mmio_base, UART0_IRQNO + i);
   }
 
-  fs_mount(io);
-  // Open a file
-  struct io_intf *file_io = NULL;
-  fs_open("helloworld.txt", &file_io);
-  struct io_intf *file_io2 = NULL;
-  fs_open("test_input.txt", &file_io2);
-  char buf2[8926];
+  size_t total_size = _companion_f_end - _companion_f_start;
 
-  console_putchar('\n');
-  console_putchar('\n');
+  intr_enable();
+  timer_start();
 
-  fs_read(file_io2, buf2, 8926);
-  for (int i = 0; i < 8926; i++)
+  struct io_lit lit_dev;
+  struct io_intf *lit_dev_intf = NULL;
+  lit_dev_intf = iolit_init(&lit_dev, _companion_f_start, total_size);
+
+  result = fs_mount(lit_dev_intf);
+
+  debug("Mounted lit_dev");
+
+  if (result != 0)
+    panic("fs_mount failed");
+
+  result = device_open(&termio, "ser", 1);
+  if (result != 0)
+    panic("Could not open ser1");
+
+  shell_main(termio);
+}
+
+void shell_main(struct io_intf *termio_raw)
+{
+  struct io_term ioterm;
+  struct io_intf *termio;
+  void (*exe_entry)(struct io_intf *);
+  struct io_intf *exeio;
+  char cmdbuf[9];
+  int tid;
+  int result;
+
+  termio = ioterm_init(&ioterm, termio_raw);
+
+  ioputs(termio, "Welcome to the companion shell\n");
+
+  for (;;)
   {
-    // console_putchar(buf2[i]);
+    ioprintf(termio, "companion_sh$> ");
+
+    ioterm_getsn(&ioterm, cmdbuf, sizeof(cmdbuf));
+    if (cmdbuf[0] == '\0')
+      continue;
+    if (strcmp(cmdbuf, "exit") == 0)
+    {
+      return;
+    }
+    result = fs_open(cmdbuf, &exeio);
+    if (result < 0)
+    {
+      if (result == -ENOENT)
+      {
+        ioprintf(termio, "%s: E:file not found\n", cmdbuf);
+      }
+      else
+      {
+        ioprintf(termio, "%s: E:unknown error with code %d\n", cmdbuf, result);
+      }
+      continue;
+    }
+    console_printf("exeio: %p\n", exeio);
+    debug("Calling elf_load(\"%s\")", cmdbuf);
+
+    result = elf_load(exeio, &exe_entry);
+
+    debug("elf_load returned %d", result);
+    console_printf("result: %d\n", result);
+    if (result < 0)
+    {
+      ioprintf(termio, "%s: Error %d\n", -result);
+    }
+    else
+    {
+      console_printf("exe_entry: %p\n", exe_entry);
+      console_printf("spawn thread\n");
+      tid = thread_spawn(cmdbuf, (void *)exe_entry, termio_raw);
+
+      if (tid < 0)
+        ioprintf(termio, "%s: Error %d\n", -result);
+      else
+        console_printf("spawned thread %d\n", tid);
+      thread_join(tid);
+    }
+
+    ioclose(exeio);
   }
-  char buf[435];
-  fs_read(file_io, buf, 435);
-
-  console_putchar('\n');
-  console_putchar('\n');
-
-  for (int i = 0; i < 435; i++)
-  {
-    // console_putchar(buf[i]);
-  }
-
-  console_putchar('\n');
-  console_putchar('\n');
-  console_printf("Current position1: %d\n", fs_ioctl(file_io2, IOCTL_GETPOS, NULL));
-  fs_ioctl(file_io2, IOCTL_SETPOS, 0);
-  console_printf("Current position2: %d\n", fs_ioctl(file_io2, IOCTL_GETPOS, NULL));
-  fs_write(file_io2, buf, 435);
-  console_printf("Current position3: %d\n", fs_ioctl(file_io2, IOCTL_GETPOS, NULL));
-  fs_ioctl(file_io2, IOCTL_SETPOS, 0);
-  console_printf("Current position4: %d\n", fs_ioctl(file_io2, IOCTL_GETPOS, NULL));
-  char buf3[8926];
-  fs_read(file_io2, buf3, 8926);
-
-  console_putchar('\n');
-  console_putchar('\n');
-
-  for (int i = 0; i < 8926; i++)
-  {
-    console_putchar(buf3[i]);
-  }
-
-  return 0;
 }
