@@ -229,7 +229,6 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
 
     condition_init(&(dev->vq.used_updated), "used ring updated");
 
-    // set the required feature bits?
 
 
     // fills out the descriptors in the virtq struct
@@ -250,13 +249,13 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     
     // descriptor to the data buffer (block buffer?)
     desc_tab[1].addr = (uint64_t)(void *) (dev->blkbuf);
-    desc_tab[1].flags |= VIRTQ_DESC_F_NEXT;
+    desc_tab[1].flags |= VIRTQ_DESC_F_NEXT; // we should change whether this is device-writable in the before IO operation
     desc_tab[1].len = blksz; // so that the device know the size of the buffer
     desc_tab[1].next = 2;
 
     //descriptor to the status BYTE;
     desc_tab[2].addr = (uint64_t)(void *)(&(dev->vq.req_status));
-    desc_tab[2].flags = 0;
+    desc_tab[2].flags |= VIRTQ_DESC_F_WRITE; // the status byte is always device writable
     desc_tab[2].len = sizeof(uint8_t);
     desc_tab[2].next = 0; // doesn't matter because NEXT flag is not set
 
@@ -277,7 +276,7 @@ int vioblk_open(struct io_intf ** ioptr, void * aux) {
     //           FIXME your code here
 
     struct vioblk_device * const dev = aux;
-    int size = sizeof(dev->vq._avail_filler);
+    // int size = sizeof(dev->vq._avail_filler);
 
     assert (ioptr != NULL);
 
@@ -347,9 +346,17 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
 
     for(int i = 0; i < VIOBLK_ATTEMPT_MAX; i++) {
         int next_idx = dev->vq.used.idx;
+        dev->vq.avail.idx ++;
+        if(op_type == VIRTIO_BLK_T_IN){
+            dev->vq.desc[2].flags |= VIRTQ_DESC_F_WRITE; // the data buffer is device-writable
+        }else{
+            dev->vq.desc[2].flags &= ~VIRTQ_DESC_F_WRITE; // the data buffer is not device-writable in a write operation
+        }
+        intr_disable();
         virtio_notify_avail(dev->regs, 0);
-        kprintf("notifying the block device a read/write op.\n");
+        // kprintf("notifying the block device a read/write op.\n");
         condition_wait(&(dev->vq.used_updated)); //wait for a read/write to complete
+        intr_enable();
 
         // if there's a used buffer notification, then the idx will be updated by plus 1.
         assert(next_idx != dev->vq.used.idx);
