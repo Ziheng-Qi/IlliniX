@@ -100,13 +100,11 @@ typedef struct {
 
 int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
     Elf64_Ehdr* elf_hdr;
-    // char* buf;
-    // unsigned long buf_sz = 16;
     long result = fs_read(io, elf_hdr, sizeof(elf_hdr));
     // read error
     if (result < 0)
         return result;
-    // invalid elf file
+    // validation
     if (elf_hdr->e_ident[EI_MAG0] != ELFMAG0 || elf_hdr->e_ident[EI_MAG1] != ELFMAG1 ||
         elf_hdr->e_ident[EI_MAG2] != ELFMAG2 || elf_hdr->e_ident[EI_MAG3] != ELFMAG3)
         return -2;
@@ -116,27 +114,27 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
         return -4;
     if (elf_hdr->e_ident[EI_VERSION] != EV_CURRENT)
         return -5;
-    // if (elf_hdr->e_ident[EI_OSABI] != ELFOSABI_NONE)
-    //     return -6;
-    // if (elf_hdr->e_machine != EM_ARM)
-    //     return -7;
-    
+
 
     for (int i = 0; i < elf_hdr->e_phnum; i++) {
         Elf64_Phdr* prog_hdr;
         fs_ioctl(io, IOCTL_SETPOS, elf_hdr->e_phoff + i * elf_hdr->e_phentsize);
-        long result = fs_read(io, prog_hdr, elf_hdr->e_phentsize);
+        result = fs_read(io, prog_hdr, elf_hdr->e_phentsize);
         if (result < 0)
             return result;
-        if (prog_hdr->p_vaddr < VALID_ADDR_LOW || prog_hdr->p_vaddr + prog_hdr->p_filesz > VALID_ADDR_HIGH)
-            return -8;
-        if (prog_hdr->p_type != PT_LOAD)
-            return -9;
+
+        // check type and all sections are valid
+        if (prog_hdr->p_type == PT_LOAD) {
+            if (prog_hdr->p_vaddr < VALID_ADDR_LOW || prog_hdr->p_vaddr + prog_hdr->p_filesz > VALID_ADDR_HIGH)
+                return -6;
+        }
 
         fs_ioctl(io, IOCTL_SETPOS, prog_hdr->p_offset);
-        long result = fs_read(io, prog_hdr->p_vaddr, prog_hdr->p_filesz);
+        result = fs_read(io, prog_hdr->p_vaddr, prog_hdr->p_filesz);
         if (result < 0)
             return result;
     }
+    // set entry point
     *entryptr = (void(*) (struct io_intf*)) elf_hdr->e_entry;
+    return 0;
 }
