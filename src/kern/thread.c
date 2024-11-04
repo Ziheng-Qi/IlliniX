@@ -201,7 +201,7 @@ int thread_spawn(const char * name, void (*start)(void *), void * arg) {
     struct thread * child;
     int tid;
 
-    trace("%s(name=\"%s\") in %s", __func__, name, running_thread()->name);
+    trace("%s(name=\"%s\") in %s", __func__, name, thrtab[running_thread()]->name);
 
     // Find a free thread slot.
 
@@ -228,7 +228,11 @@ int thread_spawn(const char * name, void (*start)(void *), void * arg) {
     child->stack_size = THREAD_STKSZ;
     set_thread_state(child, THREAD_READY);
     _thread_setup(child, child->stack_base, start, arg);
+
+    // the interrupt might insert threads to the ready list at the same time as we are inserting
+    intr_disable();
     tlinsert(&ready_list, child);
+    intr_enable();
     
     return tid;
 }
@@ -365,6 +369,8 @@ void condition_wait(struct condition *cond)
     saved_intr_state = intr_enable();
 
     suspend_self();
+
+    intr_restore(saved_intr_state);
 }
 
 /**
@@ -470,8 +476,9 @@ void suspend_self(void) {
     // FIXME your code goes here
     // Suspend the execution of the current thread and switch to another ready thread
 
-    // 1. Disable interrupts
-    // int s = intr_disable();
+    // 1. Disable interrupts 
+    // Because we don't want an interrupt to make a thread to be ready as we are modifying & reading the ready list
+    int s = intr_disable();
 
     // 2. If the thread is still runnable, insert it into the ready list
 
@@ -488,7 +495,9 @@ void suspend_self(void) {
     set_thread_state(next_thread, THREAD_RUNNING);
 
     // console_printf("Switching from %s to %s\n", CURTHR->name, next_thread->name);
-
+    
+    // 5. Enable interrupt before switching to another thread
+    intr_restore(s);
     _thread_swtch(next_thread);
 }
 
@@ -566,7 +575,7 @@ void idle_thread_func(void * arg __attribute__ ((unused))) {
         // need to disable interrupts and check the runnable thread list one
         // more time (make sure it is empty) to avoid a race condition where an
         // ISR marks a thread ready before we call the wfi instruction.
-
+        intr_disable();
         if (tlempty(&ready_list))
             asm ("wfi");
         intr_enable();

@@ -102,6 +102,14 @@ int virtio_negotiate_features (
     return 0;
 }
 
+
+/**
+ * @param regs the address of the MMIO registers
+ * @param len the size of the virtqueue, in Mp3Cp1 this is 1
+ * @param desc_addr the address of the descriptor area, refer to VirtIO doc Section 2.7
+ * @param used_addr the address of the device area, refer to Section 2.7
+ * @param avail_addr the address of the driver area, refer to Section 2,7
+ */
 void virtio_attach_virtq (
     volatile struct virtio_mmio_regs * regs, int qid, uint_fast16_t len,
     uint64_t desc_addr, uint64_t used_addr, uint64_t avail_addr)

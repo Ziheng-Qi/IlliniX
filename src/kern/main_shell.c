@@ -42,7 +42,7 @@ void main(void) {
     console_init();
     intr_init();
     devmgr_init();
-    thrmgr_init();
+    thread_init();
     timer_init();
 
     heap_init(_kimg_end, (void*)USER_START);
@@ -122,23 +122,23 @@ void shell_main(struct io_intf * termio_raw) {
             continue;
         }
 
-        debug("Calling elf_load(\"%s\")", cmdbuf);
+        // debug("Calling elf_load(\"%s\")", cmdbuf);
 
-        result = elf_load(exeio, &exe_entry);
+        // result = elf_load(exeio, &exe_entry);
 
-        debug("elf_load(\"%s\") returned %d", cmdbuf, result);
+        // debug("elf_load(\"%s\") returned %d", cmdbuf, result);
 
-        if (result < 0) {
-            ioprintf(termio, "%s: Error %d\n", -result);
+        // if (result < 0) {
+        //     ioprintf(termio, "%s: Error %d\n", -result);
         
-        } else {
-            tid = thread_spawn(cmdbuf, (void*)exe_entry, termio_raw);
+        // } else {
+        //     tid = thread_spawn(cmdbuf, (void*)exe_entry, termio_raw);
 
-            if (tid < 0)
-                ioprintf(termio, "%s: Error %d\n", -result);
-            else
-                thread_join(tid);
-        }
+        //     if (tid < 0)
+        //         ioprintf(termio, "%s: Error %d\n", -result);
+        //     else
+        //         thread_join(tid);
+        // }
 
         ioclose(exeio);
     }
