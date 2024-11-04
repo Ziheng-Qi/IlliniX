@@ -570,6 +570,8 @@ void idle_thread_func(void * arg __attribute__ ((unused))) {
 
         while (!tlempty(&ready_list))
             thread_yield();
+
+        kprintf("idle thread running\n");
         
         // No runnable threads. Sleep using the wfi instruction. Note that we
         // need to disable interrupts and check the runnable thread list one
