@@ -102,7 +102,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
     Elf64_Ehdr* elf_hdr;
     // char* buf;
     // unsigned long buf_sz = 16;
-    long* result = fs_read(io, elf_hdr, sizeof(elf_hdr));
+    long result = fs_read(io, elf_hdr, sizeof(elf_hdr));
     // read error
     if (result < 0)
         return result;
@@ -116,8 +116,8 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
         return -4;
     if (elf_hdr->e_ident[EI_VERSION] != EV_CURRENT)
         return -5;
-    if (elf_hdr->e_ident[EI_OSABI] != ELFOSABI_NONE)
-        return -6;
+    // if (elf_hdr->e_ident[EI_OSABI] != ELFOSABI_NONE)
+    //     return -6;
     // if (elf_hdr->e_machine != EM_ARM)
     //     return -7;
     
