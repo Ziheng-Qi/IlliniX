@@ -125,9 +125,9 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
     for (int i = 0; i < elf_hdr->e_phnum; i++) {
         Elf64_Phdr* prog_hdr;
         fs_ioctl(io, IOCTL_SETPOS, elf_hdr->e_phoff + i * elf_hdr->e_phentsize);
-        long* result_prog = fs_read(io, prog_hdr, sizeof(prog_hdr));
-        if (result_prog < 0)
-            return result_prog;
+        long result = fs_read(io, prog_hdr, elf_hdr->e_phentsize);
+        if (result < 0)
+            return result;
         if (prog_hdr->p_vaddr < VALID_ADDR_LOW || prog_hdr->p_vaddr + prog_hdr->p_filesz > VALID_ADDR_HIGH)
             return -8;
         if (prog_hdr->p_type != PT_LOAD)
