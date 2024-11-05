@@ -18,7 +18,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io))
   console_printf("Loading ELF file\n");
   // Read the ELF header
   console_printf("About to load %d bytes\n", sizeof(Elf64_Ehdr));
-  result = io->ops->read(io, &ehdr, sizeof(Elf64_Ehdr));
+  result = ioread(io, &ehdr, sizeof(Elf64_Ehdr));
   if (result < 0)
     return result;
 
@@ -35,8 +35,12 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io))
   for (int i = 0; i < phnum; i++)
   {
     Elf64_Phdr phdr;
-    io->ops->ctl(io, IOCTL_SETPOS, ehdr.e_phoff + i * phentsize);
-    result = io->ops->read(io, &phdr, phentsize);
+
+    uint64_t pos = ehdr.e_phoff + i * phentsize;
+    result = ioseek(io, pos);
+    if (result < 0)
+      return result;
+    result = ioread(io, &phdr, phentsize);
     if (result < 0)
       return result;
 
@@ -44,8 +48,9 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io))
     {
       if (phdr.p_vaddr < ENTRY_POINT_MIN || phdr.p_vaddr + phdr.p_filesz > ENTRY_POINT_MAX)
         return -EINVAL;
-      io->ops->ctl(io, IOCTL_SETPOS, phdr.p_offset);
-      result = io->ops->read(io, (void *)phdr.p_vaddr, phdr.p_filesz);
+      ioseek(io, phdr.p_offset);
+
+      result = ioread(io, (void *)phdr.p_vaddr, phdr.p_filesz);
       if (result < 0)
         return result;
     }

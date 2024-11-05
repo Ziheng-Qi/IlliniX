@@ -8,17 +8,6 @@ static file_t file_desc_tab[MAX_FILE_OPEN];
 // base address of the file system, basically just zero, everything operates using offsets
 static size_t fs_base = 0;
 
-static void fs_close(struct io_intf *io);
-static long fs_read(struct io_intf *io, void *buf, unsigned long n);
-static long fs_write(struct io_intf *io, const void *buf, unsigned long n);
-static int fs_ioctl(struct io_intf *io, int cmd, void *arg);
-
-const struct io_ops fs_io_ops = {
-    .close = fs_close,
-    .read = fs_read,
-    .write = fs_write,
-    .ctl = fs_ioctl};
-
 /**
  * @brief Mounts the filesystem by initializing the file descriptor table and reading the boot block.
  *
@@ -58,7 +47,11 @@ int fs_mount(struct io_intf *io)
 int fs_open(const char *name, struct io_intf **io)
 {
   // search the file in the directory
-
+  static const struct io_ops fs_io_ops = {
+      .close = fs_close,
+      .read = fs_read,
+      .write = fs_write,
+      .ctl = fs_ioctl};
   for (int i = 0; i < boot_block.num_dentry; i++)
   {
     if (strcmp(boot_block.dir_entries[i].file_name, name) == 0)
@@ -151,6 +144,7 @@ void fs_close(struct io_intf *io)
 
 long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 {
+  int result = 0;
   for (int i = 0; i < MAX_FILE_OPEN; i++)
   {
     if (io == file_desc_tab[i].io && file_desc_tab[i].flag == INUSE)
@@ -161,13 +155,19 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       uint64_t inode_num = file->inode_num;
 
       // Seek to the inode position
-      ioseek(fs_io, fs_base + BLOCK_SIZE + inode_num * BLOCK_SIZE);
-
+      result = ioseek(fs_io, fs_base + BLOCK_SIZE + inode_num * BLOCK_SIZE);
+      if (result < 0)
+      {
+        return result;
+      }
       // Read the inode
       inode_t file_inode;
 
-      ioread(fs_io, &file_inode, BLOCK_SIZE);
-
+      result = ioread(fs_io, &file_inode, BLOCK_SIZE);
+      if (result < 0)
+      {
+        return result;
+      }
       // Calculate the number of blocks written based on the file position
       uint64_t written_blocks = file_position / BLOCK_SIZE;
       uint64_t written_bytes = file_position % BLOCK_SIZE;
@@ -179,11 +179,18 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       }
 
       // Seek to the data block position
-      ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE + written_bytes);
+      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE + written_bytes);
+      if (result < 0)
+      {
+        return result;
+      }
       // Read the data block
       data_block_t data_block;
-      ioread(fs_io, &data_block, BLOCK_SIZE);
-
+      result = ioread(fs_io, &data_block, BLOCK_SIZE);
+      if (result < 0)
+      {
+        return result;
+      }
       uint64_t bytes_written = 0;
 
       // Write data to the blocks
@@ -192,8 +199,16 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
         if (written_bytes == BLOCK_SIZE)
         {
           // Write the current data block to disk
-          ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
-          iowrite(fs_io, &data_block, BLOCK_SIZE);
+          result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
+          if (result < 0)
+          {
+            return result;
+          }
+          result = iowrite(fs_io, &data_block, BLOCK_SIZE);
+          if (result < 0)
+          {
+            return result;
+          }
           // Move to the next block
           written_blocks++;
           written_bytes = 0;
@@ -205,10 +220,18 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
           }
 
           // Seek to the next data block position
-          ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
+          result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
+          if (result < 0)
+          {
+            return result;
+          }
 
           // Read the next data block
-          ioread(fs_io, &data_block, BLOCK_SIZE);
+          result = ioread(fs_io, &data_block, BLOCK_SIZE);
+          if (result < 0)
+          {
+            return result;
+          }
         }
 
         // Write the byte to the data block
@@ -217,15 +240,17 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
         bytes_written++;
       }
 
-      // Write the last data block to disk
-      for (int i = 0; i < BLOCK_SIZE; i++)
+      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
+      if (result < 0)
       {
-        // console_putchar(data_block.data[i]);
+        return result;
       }
 
-      ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
-
-      iowrite(fs_io, &data_block, BLOCK_SIZE);
+      result = iowrite(fs_io, &data_block, BLOCK_SIZE);
+      if (result < 0)
+      {
+        return result;
+      }
 
       // Update the file position
       // console_printf("n: %d\n", n);
@@ -254,6 +279,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 
 long fs_read(struct io_intf *io, void *buf, unsigned long n)
 {
+  int result = 0;
   // Loop through the file descriptor table to find the matching io interface
   for (int i = 0; i < MAX_FILE_OPEN; i++)
   {
@@ -265,15 +291,21 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       uint64_t file_position = file->file_position; // Current position in the file
       uint64_t inode_num = file->inode_num;         // Inode number of the file
       // Seek to the inode location in the filesystem
-      ioseek(fs_io, fs_base + BLOCK_SIZE + inode_num * BLOCK_SIZE);
-      console_printf("Inode number: %d\n", inode_num);
-      int curr_pos = 0;
-      ioctl(fs_io, IOCTL_GETPOS, &curr_pos);
-      console_printf("Seeking to pos: %d\n", curr_pos);
+      result = ioseek(fs_io, fs_base + BLOCK_SIZE + inode_num * BLOCK_SIZE);
+      if (result < 0)
+      {
+        return result;
+      }
+      // console_printf("Inode number: %d\n", inode_num);
+      // console_printf("Seeking to inode: %d\n", fs_io->ops->ctl(fs_io, IOCTL_GETPOS, NULL));
       // Read the inode data
       inode_t file_inode;
 
-      ioread(fs_io, &file_inode, BLOCK_SIZE); // Read the inode data
+      result = ioread(fs_io, &file_inode, BLOCK_SIZE); // Read the inode data
+      if (result < 0)
+      {
+        return result;
+      }
       // Calculate the number of blocks and bytes to read based on the file position
       uint64_t read_blocks = file_position / BLOCK_SIZE;
       uint64_t read_bytes = file_position % BLOCK_SIZE;
@@ -292,11 +324,19 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         return -EINVAL;
       }
 
-      ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
-      console_printf("Reading from block: %d\n", file_inode.data_block_num[read_blocks]);
-      ioctl(fs_io, IOCTL_GETPOS, &curr_pos);
-      console_printf("reading from: %d\n", curr_pos);
-      ioread(fs_io, &data_block, BLOCK_SIZE); // Read the data block
+      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
+      if (result < 0)
+      {
+        return result;
+      }
+      // console_printf("Reading from block: %d\n", file_inode.data_block_num[read_blocks]);
+      // console_printf("reading from: %d\n", fs_io->ops->ctl(fs_io, IOCTL_GETPOS, NULL));
+      result = ioread(fs_io, &data_block, BLOCK_SIZE); // Read the data block
+
+      if (result < 0)
+      {
+        return result;
+      }
 
       uint64_t bytes_read = 0; // Counter for the number of bytes read
 
@@ -315,8 +355,17 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
             return -EINVAL;
           }
           // Seek to the next data block
-          ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
-          ioread(fs_io, &data_block, BLOCK_SIZE); // Read the next data block
+          result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
+          if (result < 0)
+          {
+            return result;
+          }
+
+          result = ioread(fs_io, &data_block, BLOCK_SIZE); // Read the next data block
+          if (result < 0)
+          {
+            return result;
+          }
         }
         // Copy data from the data block to the buffer
 
@@ -406,6 +455,7 @@ int fs_getlen(file_t *file, void *arg)
  */
 int fs_getpos(file_t *file, void *arg)
 {
+
   return file->file_position;
 }
 
@@ -420,8 +470,7 @@ int fs_getpos(file_t *file, void *arg)
  */
 int fs_setpos(file_t *file, void *arg)
 {
-
-  file->file_position = (uint64_t)arg;
+  file->file_position = *(uint64_t *)arg;
   return 0;
 }
 /**
