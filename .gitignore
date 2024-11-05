@@ -2,3 +2,6 @@
 *.elf
 *.asm
 .vscode
+kfs.raw
+src/util/root_folder/*
+
