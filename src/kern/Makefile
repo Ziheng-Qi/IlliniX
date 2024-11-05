@@ -16,11 +16,13 @@ CORE_OBJS = \
 	io.o \
 	device.o \
 	vioblk.o \
+	stdlib.o \
 	virtio.o \
 	console.o \
 	plic.o \
 	timer.o \
 	thread.o \
+	elf.o \
 	thrasm.o \
 	ezheap.o \
 	uart.o \
@@ -50,7 +52,7 @@ CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += -mcmodel=medany -fno-pie -no-pie -march=rv64g -mabi=lp64d
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
 CFLAGS += -fno-asynchronous-unwind-tables
-CFLAGS += -I. -DDEBUG -DTRACE
+CFLAGS += -I.
 
 QEMUOPTS = -global virtio-mmio.force-legacy=false
 QEMUOPTS += -machine virt -bios none -kernel $< -m 8M -nographic
@@ -71,7 +73,7 @@ all: shell.elf
 shell.elf: $(CORE_OBJS) main_shell.o companion.o
 	$(LD) -T kernel.ld -o $@ $^
 
-test_fs.elf: $(CORE_OBJS_NO_VIO) main_tests.o companion.o
+test_fs.elf: $(CORE_OBJS) main_tests.o companion.o
 	$(LD) -T kernel.ld -o $@ $^
 
 run-test_fs: test_fs.elf

@@ -12,7 +12,11 @@
 #include "halt.h"
 #include "elf.h"
 #include "fs.h"
+#include "stdlib.h"
 #include "string.h"
+#include "fs.h" // Assuming boot_block is defined in fs.h
+
+extern struct boot_block_t boot_block; // Ensure boot_block is declared
 
 //           end of kernel image (defined in kernel.ld)
 extern char _kimg_end[];
@@ -39,11 +43,7 @@ void main(void) {
     int result;
     int i;
 
-    console_init();
-    intr_init();
-    devmgr_init();
-    thread_init();
-    timer_init();
+    
 
     heap_init(_kimg_end, (void*)USER_START);
 
@@ -93,7 +93,7 @@ void shell_main(struct io_intf * termio_raw) {
     struct io_intf * termio;
     void (*exe_entry)(struct io_intf*);
     struct io_intf * exeio;
-    char cmdbuf[18];
+    char cmdbuf[128];
     int tid;
     int result;
 
@@ -106,61 +106,166 @@ void shell_main(struct io_intf * termio_raw) {
         ioprintf(termio, "CMD> ");
         ioterm_getsn(&ioterm, cmdbuf, sizeof(cmdbuf));
 
+        char *argv[10];
+        int argc = 0;
+        char *token = strtok(cmdbuf, " ");
+
+        while (token != NULL && argc < 10)
+        {
+            argv[argc++] = token;
+            token = strtok(NULL, " ");
+        }
+        argv[argc] = NULL;
+
         if (cmdbuf[0] == '\0')
+        {
+            ioprintf(termio, "Enter a command\n");
+            ioprintf(termio, "Usage: exec <filename>\n");
+            ioprintf(termio, "Usage: cat <filename>\n");
+            ioprintf(termio, "Usage: write <filename> <startpos>\n");
             continue;
+        }
 
-        if (strcmp("exit", cmdbuf) == 0)
+        if (strcmp("exit", argv[0]) == 0)
             return;
-        
-        result = fs_open(cmdbuf, &exeio);
 
-        if (result < 0) {
-            if (result == -ENOENT)
-                ioprintf(termio, "%s: File not found\n", cmdbuf);
-            else
-                ioprintf(termio, "%s: Error %d\n", cmdbuf, -result);
-            continue;
-        }
+        char *cmd = argv[0];
 
-        size_t file_sz = 0;
-        ioctl(exeio, IOCTL_GETLEN, &file_sz);
-
-        if (file_sz < 0)
+        if (strcmp("exec", cmd) == 0)
         {
-            ioprintf(termio, "%s: Error %d\n", cmdbuf, -file_sz);
+            if (argc < 2)
+            {
+                ioputs(termio, "Usage: exec <filename>");
+                continue;
+            }
+
+            result = fs_open(argv[1], &exeio);
+
+            if (result != 0)
+            {
+                ioputs(termio, "Could not open file");
+                continue;
+            }
+
+            result = elf_load(exeio, &exe_entry);
+
+            if (result != 0)
+            {
+                ioputs(termio, "Could not load executable");
+                continue;
+            }
+
+            tid = thread_spawn(argv[1], exe_entry, termio);
             ioclose(exeio);
-            continue;
+            ioprintf(termio, "Spawned thread %d\n", tid);
+            if (tid < 0)
+            {
+                ioputs(termio, "Could not spawn thread");
+                continue;
+            }
+            else
+            {
+                thread_join(tid);
+            }
         }
-
-        char buf[file_sz];
-        kprintf("File size: %d\n", file_sz);
-        result = ioread(exeio, buf, file_sz);
-
-        for (int i = 0; i < file_sz; i++)
+        else if (strcmp("cat", cmd) == 0)
         {
-            ioputc(termio, buf[i]);
+            if (argc < 2)
+            {
+                ioputs(termio, "Usage: cat <filename>");
+                continue;
+            }
+            else
+            {
+                struct io_intf *fs_io;
+                result = fs_open(argv[1], &fs_io);
+                if (result < 0)
+                {
+                    ioputs(termio, "Could not open file");
+                    continue;
+                }
+                size_t fil_sz = 0;
+                result = ioctl(fs_io, IOCTL_GETLEN, &fil_sz);
+                if (result != 0)
+                {
+                    ioputs(termio, "Could not get file size");
+                    continue;
+                }
+                char buf[fil_sz + 1];
+                result = ioread_full(fs_io, &buf, fil_sz);
+                if (result < 0)
+                {
+                    ioputs(termio, "Could not read file");
+                    continue;
+                }
+                buf[fil_sz] = '\0';
+                ioprintf(termio, "%s\n", buf);
+                ioclose(fs_io);
+            }
         }
-        ioputc(termio, '\n');
-        // debug("Calling elf_load(\"%s\")", cmdbuf);
+        else if (strcmp("write", cmd) == 0)
+        {
+            if (argc < 3)
+            {
+                /*argv: `cmd` `file_name` `startpos`*/
+                ioputs(termio, "Usage: write <filename> <data>");
+                continue;
+            }
+            else
+            {
+                struct io_intf *fs_io;
+                result = fs_open(argv[1], &fs_io);
+                if (result < 0)
+                {
+                    ioputs(termio, "Could not open file");
+                    continue;
+                }
+                size_t fil_sz = 0;
+                result = ioctl(fs_io, IOCTL_GETLEN, &fil_sz);
+                if (result != 0)
+                {
+                    ioputs(termio, "Could not get file size");
+                    continue;
+                }
+                size_t startpos = atoi(argv[2]);
+                ioprintf(termio, "Enter txt from position %d:\n", startpos);
+                char data[fil_sz - startpos];
+                result = ioseek(fs_io, startpos);
+                if (result < 0)
+                {
+                    ioputs(termio, "Could not seek to position");
+                    continue;
+                }
+                ioterm_getsn(&ioterm, data, sizeof(data));
+                result = iowrite(fs_io, data, sizeof(data));
+                if (result < 0)
+                {
+                    ioputs(termio, "Could not write to file");
+                    continue;
+                }
+                char buf[fil_sz + 1];
+                size_t pos = 0;
+                result = ioseek(fs_io, pos);
+                if (result < 0)
+                {
+                    ioputs(termio, "Could not set position");
+                    continue;
+                }
+                result = ioread_full(fs_io, &buf, fil_sz);
+                if (result < 0)
+                {
+                    ioputs(termio, "Could not read file");
+                    continue;
+                }
+                buf[fil_sz] = '\0';
+                ioprintf(termio, "%s\n", buf);
 
-        // result = elf_load(exeio, &exe_entry);
-
-        // debug("elf_load(\"%s\") returned %d", cmdbuf, result);
-
-        // if (result < 0)
-        // {
-        //     ioprintf(termio, "%s: Error %d\n", -result);
-        // }
-        // else
-        // {
-        //     tid = thread_spawn(cmdbuf, (void *)exe_entry, termio_raw);
-
-        //     if (tid < 0)
-        //         ioprintf(termio, "%s: Error %d\n", -result);
-        //     else
-        //         thread_join(tid);
-        // }
-
-        ioclose(exeio);
+                ioclose(fs_io);
+            }
+        }
+        else
+        {
+            ioprintf(termio, "Unknown command: %s\n", cmd);
+        }
     }
 }

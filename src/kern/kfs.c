@@ -286,7 +286,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
   {
     if (io == file_desc_tab[i].io && file_desc_tab[i].flag == INUSE)
     {
-      console_printf("Found the file descriptor\n");
+      // console_printf("Found the file descriptor\n");
       // Found the file descriptor
       file_t *file = &file_desc_tab[i];
       uint64_t file_position = file->file_position; // Current position in the file
@@ -297,8 +297,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       {
         return result;
       }
-      // console_printf("Inode number: %d\n", inode_num);
-      // console_printf("Seeking to inode: %d\n", fs_io->ops->ctl(fs_io, IOCTL_GETPOS, NULL));
+
       // Read the inode data
       inode_t file_inode;
 
@@ -379,7 +378,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         bytes_read++;
       }
       // Update the file position after reading
-      console_printf("added %d bytes to the buffer\n", bytes_read);
+      // console_printf("added %d bytes to the buffer\n", bytes_read);
       file->file_position += n;
       return n; // Return the number of bytes read
     }
