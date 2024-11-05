@@ -93,7 +93,7 @@ void shell_main(struct io_intf * termio_raw) {
     struct io_intf * termio;
     void (*exe_entry)(struct io_intf*);
     struct io_intf * exeio;
-    char cmdbuf[9];
+    char cmdbuf[18];
     int tid;
     int result;
 
@@ -122,17 +122,38 @@ void shell_main(struct io_intf * termio_raw) {
             continue;
         }
 
+        size_t file_sz = 0;
+        ioctl(exeio, IOCTL_GETLEN, &file_sz);
+
+        if (file_sz < 0)
+        {
+            ioprintf(termio, "%s: Error %d\n", cmdbuf, -file_sz);
+            ioclose(exeio);
+            continue;
+        }
+
+        char buf[file_sz];
+        kprintf("File size: %d\n", file_sz);
+        result = ioread(exeio, buf, file_sz);
+
+        for (int i = 0; i < file_sz; i++)
+        {
+            ioputc(termio, buf[i]);
+        }
+        ioputc(termio, '\n');
         // debug("Calling elf_load(\"%s\")", cmdbuf);
 
         // result = elf_load(exeio, &exe_entry);
 
         // debug("elf_load(\"%s\") returned %d", cmdbuf, result);
 
-        // if (result < 0) {
+        // if (result < 0)
+        // {
         //     ioprintf(termio, "%s: Error %d\n", -result);
-        
-        // } else {
-        //     tid = thread_spawn(cmdbuf, (void*)exe_entry, termio_raw);
+        // }
+        // else
+        // {
+        //     tid = thread_spawn(cmdbuf, (void *)exe_entry, termio_raw);
 
         //     if (tid < 0)
         //         ioprintf(termio, "%s: Error %d\n", -result);

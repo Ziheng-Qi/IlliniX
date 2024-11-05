@@ -302,6 +302,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       inode_t file_inode;
 
       result = ioread(fs_io, &file_inode, BLOCK_SIZE); // Read the inode data
+
       if (result < 0)
       {
         return result;
@@ -320,17 +321,17 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
 
       if (file_position > file_inode.byte_len)
       {
-        console_printf("File Position: %d\n", file_position);
         return -EINVAL;
       }
-
       result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
       if (result < 0)
       {
         return result;
       }
       // console_printf("Reading from block: %d\n", file_inode.data_block_num[read_blocks]);
-      // console_printf("reading from: %d\n", fs_io->ops->ctl(fs_io, IOCTL_GETPOS, NULL));
+      uint64_t pos = 0;
+      fs_io->ops->ctl(fs_io, IOCTL_GETPOS, &pos);
+
       result = ioread(fs_io, &data_block, BLOCK_SIZE); // Read the data block
 
       if (result < 0)
@@ -370,8 +371,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         // Copy data from the data block to the buffer
 
         ((char *)buf)[bytes_read] = data_block.data[read_bytes];
-        // console_printf("currently reading at %d\n", read_bytes);
-        // console_putchar(data_block.data[read_bytes]);
+
         read_bytes++;
         bytes_read++;
       }
@@ -437,12 +437,20 @@ int fs_ioctl(struct io_intf *io, int cmd, void *arg)
  * This function returns the size of the file in bytes.
  *
  * @param file Pointer to the file structure.
- * @param arg Unused argument.
- * @return The size of the file in bytes.
+ * @param arg pass the result out.
+ * @return Operation status.
  */
 int fs_getlen(file_t *file, void *arg)
 {
-  return file->file_size;
+  if (arg != NULL)
+  {
+    *(uint64_t *)arg = file->file_size;
+  }
+  else
+  {
+    return -EINVAL;
+  }
+  return 0;
 }
 /**
  * @brief Get the current position in the file.
@@ -450,13 +458,20 @@ int fs_getlen(file_t *file, void *arg)
  * This function returns the current position in the file.
  *
  * @param file Pointer to the file structure.
- * @param arg Unused argument.
- * @return The current position in the file.
+ * @param arg Pass by argument.
+ * @return Operation status.
  */
 int fs_getpos(file_t *file, void *arg)
 {
-
-  return file->file_position;
+  if (arg != NULL)
+  {
+    *(uint64_t *)arg = file->file_position;
+  }
+  else
+  {
+    return -EINVAL;
+  }
+  return 0;
 }
 
 /**
@@ -473,16 +488,26 @@ int fs_setpos(file_t *file, void *arg)
   file->file_position = *(uint64_t *)arg;
   return 0;
 }
+
 /**
- * @brief Get the block size of the file system.
+ * @brief Get the block size of the file.
  *
- * This function returns the block size of the file system.
+ * This function returns the block size of the file.
  *
  * @param file Pointer to the file structure.
- * @param arg Unused argument.
- * @return The block size of the file system.
+ * @param arg Pass by argument.
+ * @return Operation status.
  */
+
 int fs_getblksz(file_t *file, void *arg)
 {
-  return BLOCK_SIZE;
+  if (arg != NULL)
+  {
+    *(uint64_t *)arg = BLOCK_SIZE;
+  }
+  else
+  {
+    return -EINVAL;
+  }
+  return 0;
 }
