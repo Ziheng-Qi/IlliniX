@@ -85,8 +85,31 @@ void main(void) {
     if (result != 0)
         panic("Could not open ser1");
     
+    // test vioblk
+
+    struct io_intf * fileio;
+    result = fs_open("helloworld.txt", &fileio);
+
+    if(result < 0){
+        kprintf("file open not success");
+    }
+
+    char bye_world[] = "buy world"; 
+    fs_write(fileio, bye_world, 10);
+    fs_close(fileio);
+
+    result = fs_open("helloworld.txt", &fileio);
+
+    if(result < 0){
+        kprintf("file open not success");
+    } 
+    fs_read(fileio, bye_world, 10);
+    fs_close(fileio);
+    kprintf(bye_world);
+
     shell_main(termio);
 }
+
 
 void shell_main(struct io_intf * termio_raw) {
     struct io_term ioterm;

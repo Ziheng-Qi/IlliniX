@@ -346,13 +346,13 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
 
     for(int i = 0; i < VIOBLK_ATTEMPT_MAX; i++) {
         int next_idx = dev->vq.used.idx;
-        dev->vq.avail.idx ++;
+        intr_disable(); // we don't want interrupt to trigger before entering condition_wait
         if(op_type == VIRTIO_BLK_T_IN){
             dev->vq.desc[2].flags |= VIRTQ_DESC_F_WRITE; // the data buffer is device-writable
         }else{
             dev->vq.desc[2].flags &= ~VIRTQ_DESC_F_WRITE; // the data buffer is not device-writable in a write operation
         }
-        intr_disable();
+        dev->vq.avail.idx ++;
         virtio_notify_avail(dev->regs, 0);
         // kprintf("notifying the block device a read/write op.\n");
         condition_wait(&(dev->vq.used_updated)); //wait for a read/write to complete
@@ -376,13 +376,13 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
             kprintf("the used ring is not returning id of 0.\n");
         }
 
-        if(op_type == VIRTIO_BLK_T_IN && dev->vq.used.ring[0].len != dev->blksz){
-            kprintf("For a block read request, the number of bytes read is not the same as block size.\n");
-        }
+        // if(op_type == VIRTIO_BLK_T_IN && dev->vq.used.ring[0].len != dev->blksz){
+        //     kprintf("For a block read request, the number of bytes read is not the same as block size.\n");
+        // }
 
-        if(op_type == VIRTIO_BLK_T_OUT && dev->vq.used.ring[0].len != 0){
-            kprintf("For a block write request, the number of bytes read is not 0\n");
-        }
+        // if(op_type == VIRTIO_BLK_T_OUT && dev->vq.used.ring[0].len != 0){
+        //     kprintf("For a block write request, the number of bytes read is not 0\n");
+        // }
 
         if (dev->vq.req_status == VIRTIO_BLK_S_OK)
         {
@@ -506,7 +506,7 @@ long vioblk_write (
 
         // copy date from buf to the block buffer
         memcpy(dev->blkbuf + start_pos, buf + bytes_written, end_pos - start_pos);
-
+        dev->bufblkno = blk_no;
         // request a write operation
         vioblk_io_request(dev, dev->bufblkno, VIRTIO_BLK_T_OUT);
 
