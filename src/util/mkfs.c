@@ -133,9 +133,12 @@ main(int argc, char *argv[])
     fseek(fp, 0L, SEEK_END);
     int num_bytes = ftell(fp);
     int num_data_blocks_for_file = (num_bytes / FS_BLKSZ) + 1;
+    if(num_bytes % FS_BLKSZ == 0){
+      num_data_blocks_for_file -= 1;
+    }
     // we can do this since the inode index is the same as the dentry index
     printf("Number of bytes for file %s: %d\n",boot_block.dir_entries[inode_idx].file_name, num_bytes); 
-
+    printf("Number of data blocks for file %s: %d\n", boot_block.dir_entries[inode_idx].file_name, num_data_blocks_for_file);
     int j;
     for (j = 0; j < num_data_blocks_for_file; ++j){
       inode_array[inode_idx].data_block_num[j] = data_block_idx;
