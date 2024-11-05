@@ -8,6 +8,17 @@ static file_t file_desc_tab[MAX_FILE_OPEN];
 // base address of the file system, basically just zero, everything operates using offsets
 static size_t fs_base = 0;
 
+static void fs_close(struct io_intf *io);
+static long fs_read(struct io_intf *io, void *buf, unsigned long n);
+static long fs_write(struct io_intf *io, const void *buf, unsigned long n);
+static int fs_ioctl(struct io_intf *io, int cmd, void *arg);
+
+const struct io_ops fs_io_ops = {
+    .close = fs_close,
+    .read = fs_read,
+    .write = fs_write,
+    .ctl = fs_ioctl};
+
 /**
  * @brief Mounts the filesystem by initializing the file descriptor table and reading the boot block.
  *
@@ -57,9 +68,10 @@ int fs_open(const char *name, struct io_intf **io)
       struct io_intf *file_io = (struct io_intf *)kmalloc(sizeof(struct io_intf));
       if (file_io == NULL)
       {
-        return -1; // Handle memory allocation failure
+        return -EINVAL; // Handle memory allocation failure
       }
-      file_io->ops = fs_io->ops;
+
+      file_io->ops = &fs_io_ops;
 
       // pass the io interface to the caller
       *io = file_io;
@@ -141,7 +153,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 {
   for (int i = 0; i < MAX_FILE_OPEN; i++)
   {
-    if (io == file_desc_tab[i].io)
+    if (io == file_desc_tab[i].io && file_desc_tab[i].flag == INUSE)
     {
       // found the file
       file_t *file = &file_desc_tab[i];
@@ -162,9 +174,9 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 
       if (file_position + n > file_inode.byte_len)
       {
-        // writing past the end of file
-        return -1;
-      } 
+        // Check if the file is full
+        return -EINVAL;
+      }
 
       // Seek to the data block position
       ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE + written_bytes);
@@ -189,7 +201,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
           // Check if the file is full
           if (written_blocks == MAX_INODES)
           {
-            return -1;
+            return -EINVAL;
           }
 
           // Seek to the next data block position
@@ -222,7 +234,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       return n;
     }
   }
-  return -1;
+  return -ENOENT;
 }
 
 /**
@@ -245,7 +257,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
   // Loop through the file descriptor table to find the matching io interface
   for (int i = 0; i < MAX_FILE_OPEN; i++)
   {
-    if (io == file_desc_tab[i].io)
+    if (io == file_desc_tab[i].io && file_desc_tab[i].flag == INUSE)
     {
       console_printf("Found the file descriptor\n");
       // Found the file descriptor
@@ -270,14 +282,14 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       data_block_t data_block;
       if (read_blocks == sizeof(file_inode.data_block_num) / sizeof(file_inode.data_block_num[0]))
       {
-        return -1;
+        return -EINVAL;
       }
       // check if the file_position is greater than the file size
 
       if (file_position > file_inode.byte_len)
       {
         console_printf("File Position: %d\n", file_position);
-        return -1;
+        return -EINVAL;
       }
 
       ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
@@ -300,7 +312,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
           if (read_blocks == MAX_INODES)
           {
             // If the file is full, return an error
-            return -1;
+            return -EINVAL;
           }
           // Seek to the next data block
           ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
@@ -321,7 +333,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
     }
   }
   // If the file descriptor is not found, return an error
-  return -1;
+  return -ENOENT;
 }
 
 /**
@@ -363,7 +375,7 @@ int fs_ioctl(struct io_intf *io, int cmd, void *arg)
       case IOCTL_GETBLKSZ:
         return fs_getblksz(file, arg);
       default:
-        return -1;
+        return -EINVAL;
       }
     }
   }

@@ -18,13 +18,13 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io))
   console_printf("Loading ELF file\n");
   // Read the ELF header
   console_printf("About to load %d bytes\n", sizeof(Elf64_Ehdr));
-  result = fs_read(io, &ehdr, sizeof(Elf64_Ehdr));
+  result = io->ops->read(io, &ehdr, sizeof(Elf64_Ehdr));
   if (result < 0)
     return result;
 
   // Check the ELF magic number
   if (ehdr.e_ident[0] != ELF_MAGIC0 || ehdr.e_ident[1] != ELF_MAGIC1 || ehdr.e_ident[2] != ELF_MAGIC2 || ehdr.e_ident[3] != ELF_MAGIC3)
-    return -EINVAL;
+    return -EBADFMT;
 
   // Read the program headers
   phnum = ehdr.e_phnum;
@@ -35,8 +35,8 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io))
   for (int i = 0; i < phnum; i++)
   {
     Elf64_Phdr phdr;
-    fs_ioctl(io, IOCTL_SETPOS, ehdr.e_phoff + i * phentsize);
-    result = fs_read(io, &phdr, phentsize);
+    io->ops->ctl(io, IOCTL_SETPOS, ehdr.e_phoff + i * phentsize);
+    result = io->ops->read(io, &phdr, phentsize);
     if (result < 0)
       return result;
 
@@ -44,8 +44,8 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io))
     {
       if (phdr.p_vaddr < ENTRY_POINT_MIN || phdr.p_vaddr + phdr.p_filesz > ENTRY_POINT_MAX)
         return -EINVAL;
-      fs_ioctl(io, IOCTL_SETPOS, phdr.p_offset);
-      result = fs_read(io, (void *)phdr.p_vaddr, phdr.p_filesz);
+      io->ops->ctl(io, IOCTL_SETPOS, phdr.p_offset);
+      result = io->ops->read(io, (void *)phdr.p_vaddr, phdr.p_filesz);
       if (result < 0)
         return result;
     }

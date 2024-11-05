@@ -1,5 +1,5 @@
-//           elf.h - ELF executable loader
-//          
+//            elf.h - ELF executable loader
+//           
 
 #ifndef _ELF_H_
 #define _ELF_H_
@@ -125,7 +125,6 @@ typedef struct
 
 int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io));
 
-//           _ELF_H_
+//            _ELF_H_
 
 #endif
-
