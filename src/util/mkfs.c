@@ -87,14 +87,30 @@ main(int argc, char *argv[])
   for(i = 2; i < argc; i++){ //Add all dentries
     // get rid of "../user/bin/" or "user/bin/"
     char *shortname;
-    if(strncmp(argv[i], "../user/bin/", 12) == 0)
-      shortname = argv[i] + 12;
-    else if(strncmp(argv[i], "user/bin/", 9) == 0)
-      shortname = argv[i] + 9;
-    else
-      shortname = argv[i];
+    // if(strncmp(argv[i], "../user/bin/", 12) == 0)
+    //   shortname = argv[i] + 12;
+    // else if(strncmp(argv[i], "user/bin/", 9) == 0)
+    //   shortname = argv[i] + 9;
+    // else
+    //   shortname = argv[i];
 
-    assert(index(shortname, '/') == 0);
+    char * index_slash = index(argv[i], '/');
+    if(index_slash == NULL){
+      // no '/', already a good file name
+      shortname = argv[i];
+    }else{
+      // find the last '/' and take the name after that as the file name
+      // while there are still '/' in index_slash, find '/'
+      while(index(index_slash, '/') != NULL){ 
+        index_slash = index(index_slash, '/')+1;
+      }
+      shortname = index_slash; // to get rid of '/'s, because we assume flat directory
+    }
+    
+
+    
+    // printf("%s",shortname);
+    // assert(index(shortname, '/') == 0);
 
     printf("File name is %s\n", shortname);
     printf("Dentry index is %d\n", number_inodes);
