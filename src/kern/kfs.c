@@ -21,7 +21,7 @@ int fs_mount(struct io_intf *io)
 {
   fs_io = io;
   // Allocate memory for the boot block
-  ioread(fs_io, &boot_block, BLOCK_SIZE);
+  ioread_full(fs_io, &boot_block, BLOCK_SIZE);
   // Read the boot block
   // get the boot block, the boot block won't be changed after mounting
   for (int i = 0; i < MAX_FILE_OPEN; i++)
@@ -78,7 +78,7 @@ int fs_open(const char *name, struct io_intf **io)
       uint64_t file_position = 0;
       ioseek(fs_io, position);
       inode_t file_inode;
-      ioread(fs_io, &file_inode, BLOCK_SIZE);
+      ioread_full(fs_io, &file_inode, BLOCK_SIZE);
       uint64_t file_size = file_inode.byte_len;
       uint64_t flag = INUSE;
       for (int j = 0; j < MAX_FILE_OPEN; j++)
@@ -163,7 +163,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       // Read the inode
       inode_t file_inode;
 
-      result = ioread(fs_io, &file_inode, BLOCK_SIZE);
+      result = ioread_full(fs_io, &file_inode, BLOCK_SIZE);
       if (result < 0)
       {
         return result;
@@ -186,7 +186,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       }
       // Read the data block
       data_block_t data_block;
-      result = ioread(fs_io, &data_block, BLOCK_SIZE);
+      result = ioread_full(fs_io, &data_block, BLOCK_SIZE);
       if (result < 0)
       {
         return result;
@@ -227,7 +227,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
           }
 
           // Read the next data block
-          result = ioread(fs_io, &data_block, BLOCK_SIZE);
+          result = ioread_full(fs_io, &data_block, BLOCK_SIZE);
           if (result < 0)
           {
             return result;
@@ -301,7 +301,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       // Read the inode data
       inode_t file_inode;
 
-      result = ioread(fs_io, &file_inode, BLOCK_SIZE); // Read the inode data
+      result = ioread_full(fs_io, &file_inode, BLOCK_SIZE); // Read the inode data
 
       if (result < 0)
       {
@@ -332,7 +332,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       uint64_t pos = 0;
       fs_io->ops->ctl(fs_io, IOCTL_GETPOS, &pos);
 
-      result = ioread(fs_io, &data_block, BLOCK_SIZE); // Read the data block
+      result = ioread_full(fs_io, &data_block, BLOCK_SIZE); // Read the data block
 
       if (result < 0)
       {
@@ -362,7 +362,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
             return result;
           }
 
-          result = ioread(fs_io, &data_block, BLOCK_SIZE); // Read the next data block
+          result = ioread_full(fs_io, &data_block, BLOCK_SIZE); // Read the next data block
           if (result < 0)
           {
             return result;

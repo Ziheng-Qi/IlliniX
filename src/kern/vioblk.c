@@ -415,37 +415,26 @@ long vioblk_read (
         return 0;
     }
 
-    long bytes_read = 0;
 
     // if data in the block buffer is already the block that we need
     // we can directly copy data from the buffer in dev struct to the output buffer
-    if(dev->bufblkno == (dev->pos) / (dev->blksz)){ // the index of the current block we want to read from 
-        int pos_in_blk = (dev->pos) % (dev->blksz);  // the offset of current "cursor" position in block
-        int start_pos = pos_in_blk; // the index that we are start reading from 
-        int end_pos = min(dev->blksz, bufsz - bytes_read); // read until the end of block unless we are reading enough, this position is  (we read until end_pos - 1)
 
-        memcpy(buf + bytes_read, dev->blkbuf + pos_in_blk, end_pos - start_pos); // copy to the end of the block
-        bytes_read += end_pos - start_pos;
-        dev->pos += end_pos - start_pos;
-    }
+    int blk_no = (dev->pos) / (dev->blksz);
+    int pos_in_blk = (dev->pos) % (dev->blksz);  // the offset of current "cursor" position in block
+    int start_pos = pos_in_blk; // the index that we are start reading from 
+    int end_pos = min(dev->blksz, start_pos + bufsz); // read until the end of block unless we are reading enough before that, this position is  (we read until end_pos - 1)
 
-    // while the buffer wants more data
-    while(bytes_read < bufsz){
-        int pos_in_blk = (dev->pos) % (dev->blksz); // the offset of current position in block
-        int blk_no = (dev->pos) / (dev->blksz); // the index of the current block wanting to read from 
-
+    // if the buffer does not contain the block that we want, read it from the device
+    if(dev->bufblkno != blk_no){
         // request data from vioblk device, data should be in dev->blkbuf after this.
         vioblk_io_request(dev, blk_no, VIRTIO_BLK_T_IN);
-        
-        // now we need to copy data from the buffer we read from the device to the output buffer
-        int start_pos = pos_in_blk;
-        int end_pos = min(dev->blksz, bufsz - bytes_read); 
-
-        memcpy(buf + bytes_read, dev->blkbuf + pos_in_blk, end_pos - start_pos); // copy to the end of the block
-        bytes_read += end_pos - start_pos;
-        dev->pos += end_pos - start_pos;
     }
-    return bytes_read;
+
+    // now we need to copy data from the buffer we read from the device to the output buffer
+    memcpy(buf, dev->blkbuf + pos_in_blk, end_pos - start_pos); // copy to the end of the block
+    dev->pos += end_pos - start_pos;
+
+    return end_pos - start_pos;
 }
 
 long vioblk_write (
@@ -466,55 +455,38 @@ long vioblk_write (
         return 0;
     }
 
-    long bytes_written = 0;
+    int blk_no = (dev->pos) / (dev->blksz);
+    int pos_in_blk = (dev->pos) % (dev->blksz); // the offset of the current cursor in the block
+    int start_pos = pos_in_blk;
+    int end_pos = min(dev->blksz, start_pos+n); // we write until the end of the block unless we are writing enough data, does not include this position
+    // n - bytes_written is the number of bytes that still need to be written
 
-    // if data in the block buffer is already the block that we want to write to
+    // if the write is not a full block 
+    // and the block in the buffer is not the block that we want to write to,
+    // we need to read the block first
+    if((end_pos != dev->blksz || start_pos != 0) && dev->bufblkno != blk_no){
+        vioblk_io_request(dev, blk_no, VIRTIO_BLK_T_IN);
+        // now we have a full block in the block buffer of the device struct
+        assert(dev->bufblkno == blk_no);
+    }
+
+    // the block buffer is already the block that we want to write to
     // we can directly modify the part of the data that we want to modify and then request a write
-    if(dev->bufblkno == (dev->pos) / (dev->blksz)){ // the index of the current block that we want to write to
 
-        int pos_in_blk = (dev->pos) % (dev->blksz); // the offset of the current cursor in the block
-        int start_pos = pos_in_blk;
-        int end_pos = min(dev->blksz, start_pos+n-bytes_written); // we write until the end of the block unless we are writing enough data, does not include this position
-        // n - bytes_written is the number of bytes that still need to be written
-
-        // copy date from buf to the block buffer
-        memcpy(dev->blkbuf + start_pos, buf + bytes_written, end_pos - start_pos);
-
-        // request a write operation
-        vioblk_io_request(dev, dev->bufblkno, VIRTIO_BLK_T_OUT);
-
-        // write to device is done, update bytes_written to device
-        bytes_written += end_pos - start_pos;
-        dev->pos += end_pos - start_pos;
-    }
-
-    while(bytes_written < n){
-        // if data in the block buffer is already the block that we want to write to
-        // we can directly modify the part of the data that we want to modify and then request a write
-        int pos_in_blk = (dev->pos) % (dev->blksz); // the offset of the current cursor in the block
-        int blk_no = (dev->pos) / (dev->blksz);
-        int start_pos = pos_in_blk;
-        int end_pos = min(dev->blksz, start_pos+n-bytes_written); // we write until the end of the block unless we are writing enough data, does not include this position
-        // n - bytes_written is the number of bytes that still need to be written
-
-        // to write less than 512B to a block, we need to read the entire block and add the changes then write the 512B back to the device
-        if(start_pos != 0 || end_pos != dev->blksz){
-            vioblk_io_request(dev, blk_no, VIRTIO_BLK_T_IN);
-            // now we have a full block in the block buffer of the device struct
-            assert(dev->bufblkno == blk_no);
-        }
-
-        // copy date from buf to the block buffer
-        memcpy(dev->blkbuf + start_pos, buf + bytes_written, end_pos - start_pos);
+    // if we are writing a full block, makesure to update the bufblkno as writing into dev->buf
+    if(start_pos == 0 || end_pos == dev->blksz){
         dev->bufblkno = blk_no;
-        // request a write operation
-        vioblk_io_request(dev, dev->bufblkno, VIRTIO_BLK_T_OUT);
-
-        // write to device is done, update bytes_written to device
-        bytes_written += end_pos - start_pos;
-        dev->pos += end_pos - start_pos;
     }
-    return bytes_written;
+
+    // copy date from buf to the block buffer
+    memcpy(dev->blkbuf + start_pos, buf, end_pos - start_pos);
+
+    // request a write operation
+    vioblk_io_request(dev, dev->bufblkno, VIRTIO_BLK_T_OUT);
+
+    // write to device is done, update bytes_written to device
+    dev->pos += end_pos - start_pos;
+    return end_pos - start_pos;
 }
 
 int vioblk_ioctl(struct io_intf * restrict io, int cmd, void * restrict arg) {
