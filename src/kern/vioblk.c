@@ -225,18 +225,17 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     dev->size = regs->config.blk.capacity * VIOBLK_SECTOR_SIZE; 
     dev->blkcnt = dev->size / blksz;
     dev->bufblkno = UINT64_MAX; // the data in the buffer is nothing, the block number cannot reach -1 in unsigned because INT64_MAX * blksz is so large
-    dev->blkbuf = (void *)(&(dev))+sizeof(struct vioblk_device); // the block buffer is after the dev struct
+    dev->blkbuf = (void *)(dev)+sizeof(struct vioblk_device); // the block buffer is after the dev struct
 
     condition_init(&(dev->vq.used_updated), "used ring updated");
 
-    // set the required feature bits?
 
 
     // fills out the descriptors in the virtq struct
 
     // indirect descriptor
     struct virtq_desc* indirect_desc = &(dev->vq.desc[0]);  
-    indirect_desc->addr = (uint64_t)(void *)(dev->vq.desc)+1; // points to the second entry in the desc[] array
+    indirect_desc->addr = (uint64_t)(void *)(dev->vq.desc)+sizeof(struct virtq_desc); // points to the second entry in the desc[] array
     indirect_desc->flags |= VIRTQ_DESC_F_INDIRECT;
     indirect_desc->len = 3*sizeof(struct virtq_desc);
     indirect_desc->next = 0; // doesn't matter because the NEXT flag is not set
@@ -249,14 +248,14 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     desc_tab[0].next = 1;
     
     // descriptor to the data buffer (block buffer?)
-    desc_tab[1].addr = (uint64_t)(void *) (&(dev->blkbuf));
-    desc_tab[1].flags |= VIRTQ_DESC_F_NEXT;
+    desc_tab[1].addr = (uint64_t)(void *) (dev->blkbuf);
+    desc_tab[1].flags |= VIRTQ_DESC_F_NEXT; // we should change whether this is device-writable in the before IO operation
     desc_tab[1].len = blksz; // so that the device know the size of the buffer
     desc_tab[1].next = 2;
 
     //descriptor to the status BYTE;
     desc_tab[2].addr = (uint64_t)(void *)(&(dev->vq.req_status));
-    desc_tab[2].flags = 0;
+    desc_tab[2].flags |= VIRTQ_DESC_F_WRITE; // the status byte is always device writable
     desc_tab[2].len = sizeof(uint8_t);
     desc_tab[2].next = 0; // doesn't matter because NEXT flag is not set
 
@@ -277,7 +276,7 @@ int vioblk_open(struct io_intf ** ioptr, void * aux) {
     //           FIXME your code here
 
     struct vioblk_device * const dev = aux;
-    int size = sizeof(dev->vq._avail_filler);
+    // int size = sizeof(dev->vq._avail_filler);
 
     assert (ioptr != NULL);
 
@@ -288,7 +287,7 @@ int vioblk_open(struct io_intf ** ioptr, void * aux) {
     virtio_enable_virtq(dev->regs, 0);
 
     dev->vq.avail.flags = 0; // we need notification
-    dev->vq.avail.idx = 1; // points to the index of the indirect descriptor
+    dev->vq.avail.idx = 0; // points to the index of the indirect descriptor
     // dev->vq._avail_filler[] = (uint64_t)(void *)(&(dev->vq.avail)) + sizeof(struct virtq_avail);
     dev->vq.avail.ring[0] = 0; // we would only have one request at a time 
 
@@ -331,7 +330,7 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
 
     if(op_type == VIRTIO_BLK_T_OUT && dev->bufblkno != blk_no){
         // for write operation, check if the blk_no is the same as the number of the block in the dev buffer
-        kprintf("The block number requested is not the same as the number of the block in the buffer!");
+        kprintf("The block number requested is not the same as the number of the block in the buffer!\n");
         return -1;
     }
     
@@ -347,13 +346,21 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
 
     for(int i = 0; i < VIOBLK_ATTEMPT_MAX; i++) {
         int next_idx = dev->vq.used.idx;
+        dev->vq.avail.idx ++;
+        if(op_type == VIRTIO_BLK_T_IN){
+            dev->vq.desc[2].flags |= VIRTQ_DESC_F_WRITE; // the data buffer is device-writable
+        }else{
+            dev->vq.desc[2].flags &= ~VIRTQ_DESC_F_WRITE; // the data buffer is not device-writable in a write operation
+        }
+        intr_disable();
         virtio_notify_avail(dev->regs, 0);
-        kprintf("notifying the block device a read/write op.");
+        // kprintf("notifying the block device a read/write op.\n");
         condition_wait(&(dev->vq.used_updated)); //wait for a read/write to complete
+        intr_enable();
 
         // if there's a used buffer notification, then the idx will be updated by plus 1.
         assert(next_idx != dev->vq.used.idx);
-        kprintf("the idx of the used ring has update!");
+        kprintf("the idx of the used ring has update!\n");
 
         if(op_type == VIRTIO_BLK_T_IN){ // if this is a read operation
             // now blkbuf contains the block data, update the bufblkno
@@ -366,25 +373,25 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
         if(dev->vq.used.ring[0].id != 0) {
             // we only have one descriptor chain, so id should always be 0
             // 
-            kprintf("the used ring is not returning id of 0.");
+            kprintf("the used ring is not returning id of 0.\n");
         }
 
         if(op_type == VIRTIO_BLK_T_IN && dev->vq.used.ring[0].len != dev->blksz){
-            kprintf("For a block read request, the number of bytes read is not the same as block size.");
+            kprintf("For a block read request, the number of bytes read is not the same as block size.\n");
         }
 
         if(op_type == VIRTIO_BLK_T_OUT && dev->vq.used.ring[0].len != 0){
-            kprintf("For a block write request, the number of bytes read is not 0");
+            kprintf("For a block write request, the number of bytes read is not 0\n");
         }
 
         if (dev->vq.req_status == VIRTIO_BLK_S_OK)
         {
-            kprintf("read/write request ok!");
+            kprintf("read/write request ok!\n");
             return 0; 
         }else if(dev->vq.req_status == VIRTIO_BLK_S_IOERR){
-            kprintf("read/write request IO Error!");
+            kprintf("read/write request IO Error!\n");
         }else if(dev->vq.req_status == VIRTIO_BLK_S_UNSUPP){
-            kprintf("read/write request un supported");
+            kprintf("read/write request un supported\n");
         }
     }
 
@@ -541,6 +548,8 @@ void vioblk_isr(int irqno, void * aux) {
 
         // acknolwedge the interrupt is handled to the device
         dev->regs->interrupt_ack |= USED_BUFFER_NOTIF;
+        // fence 
+        __sync_synchronize();
     }
 }
 
@@ -560,7 +569,7 @@ int vioblk_setpos(struct vioblk_device * dev, const uint64_t * posptr) {
     //           FIXME your code here
     
     if(*posptr >= dev->size){
-        kprintf("request vioblk_setpos with a position out of device bound.");
+        kprintf("request vioblk_setpos with a position out of device bound.\n");
         return -1;
     }
     dev->pos = *posptr;
