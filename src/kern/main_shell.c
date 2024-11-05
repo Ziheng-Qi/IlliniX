@@ -93,7 +93,7 @@ void shell_main(struct io_intf * termio_raw) {
     struct io_intf * termio;
     void (*exe_entry)(struct io_intf*);
     struct io_intf * exeio;
-    char cmdbuf[9];
+    char cmdbuf[18];
     int tid;
     int result;
 

@@ -360,7 +360,7 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
 
         // if there's a used buffer notification, then the idx will be updated by plus 1.
         assert(next_idx != dev->vq.used.idx);
-        kprintf("the idx of the used ring has update!\n");
+        // kprintf("the idx of the used ring has update!\n");
 
         if(op_type == VIRTIO_BLK_T_IN){ // if this is a read operation
             // now blkbuf contains the block data, update the bufblkno
@@ -386,7 +386,7 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
 
         if (dev->vq.req_status == VIRTIO_BLK_S_OK)
         {
-            kprintf("read/write request ok!\n");
+            // kprintf("read/write request ok!\n");
             return 0; 
         }else if(dev->vq.req_status == VIRTIO_BLK_S_IOERR){
             kprintf("read/write request IO Error!\n");
@@ -555,12 +555,20 @@ void vioblk_isr(int irqno, void * aux) {
 
 int vioblk_getlen(const struct vioblk_device * dev, uint64_t * lenptr) {
     //           FIXME your code here
+    if (lenptr == NULL)
+    {
+        return -EINVAL;
+    }
     *lenptr = dev->size;
     return 0;
 }
 
 int vioblk_getpos(const struct vioblk_device * dev, uint64_t * posptr) {
     //           FIXME your code here
+    if (posptr == NULL)
+    {
+        return -EINVAL;
+    }
     *posptr = dev->pos;
     return 0;
 }
