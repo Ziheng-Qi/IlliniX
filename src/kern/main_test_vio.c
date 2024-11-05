@@ -95,17 +95,25 @@ void main(void) {
     }
 
     char bye_world[] = "buy world"; 
-    fs_write(fileio, bye_world, 10);
-    fs_close(fileio);
+    iowrite(fileio, bye_world, 10);
+    ioclose(fileio);
 
     result = fs_open("helloworld.txt", &fileio);
 
     if(result < 0){
         kprintf("file open not success");
     } 
-    fs_read(fileio, bye_world, 10);
-    fs_close(fileio);
-    kprintf(bye_world);
+    
+    for(int i = 0; i < 10; i++){
+        bye_world[i] = '0';
+    }
+    bye_world[9] = 0;
+
+    kprintf("bye_world cleared: %s\n", bye_world);
+
+    ioread_full(fileio, bye_world, 10);
+    ioclose(fileio);
+    kprintf("bye world should be re-read: %s\n", bye_world);
 
     shell_main(termio);
 }
