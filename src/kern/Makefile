@@ -38,7 +38,6 @@ CORE_OBJS_NO_VIO = \
 	device.o \
 	console.o \
 	plic.o \
-	elf.o \
 	thrasm.o \
 	thread.o \
 	uart.o \
@@ -52,7 +51,7 @@ CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += -mcmodel=medany -fno-pie -no-pie -march=rv64g -mabi=lp64d
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
 CFLAGS += -fno-asynchronous-unwind-tables
-CFLAGS += -I. -DDEBUG -DTRACE
+CFLAGS += -I. # -DDEBUG -DTRACE
 
 QEMUOPTS = -global virtio-mmio.force-legacy=false
 QEMUOPTS += -machine virt -bios none -kernel $< -m 8M -nographic
