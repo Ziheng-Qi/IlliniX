@@ -176,7 +176,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       {
         // Check if the file is full
         // Zero byte written means EOF
-        return -EINVAL;
+        n = file_inode.byte_len - file_position;
       }
 
       // Seek to the data block position
@@ -323,7 +323,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       if (file_position + n > file_inode.byte_len)
       {
         // Zero byte read means EOF
-        return 0;
+        n = file_inode.byte_len - file_position;
       }
 
       result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
