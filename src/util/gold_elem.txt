@@ -1,0 +1,20 @@
+Making fs
+File name is trek
+Dentry index is 0
+Inode number is 0
+File name is helloworld.txt
+Dentry index is 1
+Inode number is 1
+File name is enum.txt
+Dentry index is 2
+Inode number is 2
+Number of bytes for file trek: 45280
+Number of bytes for file helloworld.txt: 435
+Number of bytes for file enum.txt: 1098
+Total number of dentries: 3
+Total number of inodes: 3
+Total number of data blocks: 14
+Wrote Inode 0, Program: trek
+Wrote Inode 1, Program: helloworld.txt
+Wrote Inode 2, Program: enum.txt
+Wrote filesystem image to kfs.raw

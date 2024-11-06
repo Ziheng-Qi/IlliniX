@@ -27,6 +27,7 @@ CORE_OBJS = \
 	ezheap.o \
 	uart.o \
 	kfs.o \
+	elf.o \
 	# Add the names of new objects here
 
 CORE_OBJS_NO_VIO = \
@@ -39,20 +40,20 @@ CORE_OBJS_NO_VIO = \
 	device.o \
 	console.o \
 	plic.o \
-	elf.o \
 	thrasm.o \
 	thread.o \
 	uart.o \
 	timer.o \
 	ezheap.o \
 	kfs.o \
+	elf.o \
 	# Add the names of new objects here
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += -mcmodel=medany -fno-pie -no-pie -march=rv64g -mabi=lp64d
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
 CFLAGS += -fno-asynchronous-unwind-tables
-CFLAGS += -I.
+CFLAGS += -I. # -DDEBUG -DTRACE
 
 QEMUOPTS = -global virtio-mmio.force-legacy=false
 QEMUOPTS += -machine virt -bios none -kernel $< -m 8M -nographic
@@ -68,15 +69,21 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 
-all: shell.elf 
+all: shell.elf test_fs.elf vioblk.elf 
 
 shell.elf: $(CORE_OBJS) main_shell.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+
+rubric_test.elf: $(CORE_OBJS) rubric_tests.o companion.o
 	$(LD) -T kernel.ld -o $@ $^
 
 test_fs.elf: $(CORE_OBJS) main_tests.o companion.o
 	$(LD) -T kernel.ld -o $@ $^
 
 run-test_fs: test_fs.elf
+	$(QEMU) $(QEMUOPTS)
+
+run-rubric_test: rubric_test.elf
 	$(QEMU) $(QEMUOPTS)
 
 debug-test_fs: test_fs.elf
@@ -86,6 +93,9 @@ run-shell: shell.elf
 	$(QEMU) $(QEMUOPTS)
 
 debug-shell: shell.elf
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+
+debug-vioblk: vioblk.elf
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
 # You might want to add more here
