@@ -44,11 +44,11 @@ int main() {
   // return 0;
   struct io_lit lit;
   struct io_intf* trek_io = iolit_init(&lit, _companion_f_start, _companion_f_end - _companion_f_start);
-  // int result = fs_open("trek", &trek_io); // 打开 trek 文件
+  // int result = fs_open("trek", &trek_io); 
   // if (result < 0) {
   //     console_printf("Result: %d\n", result);
   //     console_printf("Error opening trek file\n");
-  //     return 1; // 错误处理
+  //     return 1; 
   // }
   // if (result == 0) 
   //     console_printf("Successfully opening trek file\n");
@@ -60,13 +60,12 @@ int main() {
     console_printf("Success to load trek file: %d\n", result);
   if (result != 0) {
       console_printf("Failed to load trek file: %d\n", result);
-      return 1; // 错误处理
+      return 1; 
   }
 
-    // 验证入口指针
   if (*entry != NULL) {
       console_printf("Trek file loaded successfully, entry pointer: %p\n", (void*)entry);
-        // 可以调用 entry 来执行程序
+      
   } else {
       console_printf("Entry pointer is NULL\n");
   }

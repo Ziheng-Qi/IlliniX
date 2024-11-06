@@ -23,13 +23,13 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
     // validation
     if (elf_hdr.e_ident[EI_MAG0] != ELFMAG0 || elf_hdr.e_ident[EI_MAG1] != ELFMAG1 ||
         elf_hdr.e_ident[EI_MAG2] != ELFMAG2 || elf_hdr.e_ident[EI_MAG3] != ELFMAG3)
-        return -2;
+        return -EBADFMT;
     if (elf_hdr.e_ident[EI_CLASS] != ELFCLASS64)
-        return -3;
+        return -EBADFMT;
     if (elf_hdr.e_ident[EI_DATA] != ELFDATA2LSB)
-        return -4;
+        return -EBADFMT;
     if (elf_hdr.e_ident[EI_VERSION] != EV_CURRENT)
-        return -5;
+        return -EBADFMT;
 
 
     for (int i = 0; i < elf_hdr.e_phnum; i++) {
@@ -44,16 +44,15 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
         // check type and all sections are valid
         if (prog_hdr.p_type == PT_LOAD) {
             if (prog_hdr.p_vaddr < VALID_ADDR_LOW || prog_hdr.p_vaddr + prog_hdr.p_filesz > VALID_ADDR_HIGH)
-                return -6;
+                return -EINVAL;
+            ioseek(io, prog_hdr.p_offset);
+            result = ioread(io, (void*) prog_hdr.p_vaddr, prog_hdr.p_filesz);
+            if (result < 0)
+                return result;
         }
-        ioseek(io, prog_hdr.p_offset);
-        console_printf("Loaded segment to address: %p, size: %zu\n", (void*)prog_hdr.p_vaddr, prog_hdr.p_filesz);
-        result = ioread(io, (void*) prog_hdr.p_vaddr, prog_hdr.p_filesz);
-        if (result < 0)
-            return result;
-        console_printf("Hello2\n");
     }
     // set entry point
     *entryptr = (void(*) (struct io_intf*)) elf_hdr.e_entry;
+    console_printf("entryptr: %x\n", *entryptr);
     return 0;
 }
