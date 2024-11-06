@@ -25,6 +25,7 @@ CORE_OBJS = \
 	ezheap.o \
 	uart.o \
 	kfs.o \
+	test_elf.o \
 	# Add the names of new objects here
 
 CORE_OBJS_NO_VIO = \
@@ -44,6 +45,8 @@ CORE_OBJS_NO_VIO = \
 	timer.o \
 	ezheap.o \
 	kfs.o \
+	test_elf.o \
+	companion.o \
 	# Add the names of new objects here
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
@@ -55,11 +58,11 @@ CFLAGS += -I. -DDEBUG -DTRACE
 QEMUOPTS = -global virtio-mmio.force-legacy=false
 QEMUOPTS += -machine virt -bios none -kernel $< -m 8M -nographic
 QEMUOPTS += -serial mon:stdio
-QEMUOPTS += -drive file=kfs.raw,id=blk0,if=none,format=raw
-QEMUOPTS += -device virtio-blk-device,drive=blk0
+#QEMUOPTS += -drive file=kfs.raw,id=blk0,if=none,format=raw
+#QEMUOPTS += -device virtio-blk-device,drive=blk0
 QEMUOPTS += -serial pty
-test_fs.elf: $(CORE_OBJS_NO_VIOBLK) main_tests.o companion.o
-	$(LD) -T kernel.ld -o $@ $^
+# test_fs.elf: $(CORE_OBJS_NO_VIOBLK) main_tests.o companion.o
+# 	$(LD) -T kernel.ld -o $@ $^
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
 # QEMU's gdb stub command line changed in 0.11
 QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
@@ -86,6 +89,15 @@ run-shell: shell.elf
 debug-shell: shell.elf
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
+
+test_elf.elf: $(CORE_OBJS_NO_VIO) test_elf.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+
+run-test_elf: test_elf.elf
+	$(QEMU) $(QEMUOPTS)
+
+debug_test_elf: test_elf.elf
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 # You might want to add more here
 
 clean:
