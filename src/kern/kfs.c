@@ -180,13 +180,22 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       }
 
       // Seek to the data block position
-      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE + written_bytes);
+      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
+      kprintf("file_inode.data_block_num[written_blocks]: %d\n", file_inode.data_block_num[written_blocks]);
       if (result < 0)
       {
         return result;
       }
       // Read the data block
       data_block_t data_block;
+      size_t pos = 0;
+      result = ioctl(fs_io, IOCTL_GETPOS, &pos);
+      if (result < 0)
+      {
+        return result;
+      }
+      kprintf("seeked to position %d\n", pos);
+      kprintf("supposed to write to position %d\n", fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
       result = ioread_full(fs_io, &data_block, BLOCK_SIZE);
       if (result < 0)
       {
@@ -287,6 +296,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
     if (io == file_desc_tab[i].io && file_desc_tab[i].flag == INUSE)
     {
       // console_printf("Found the file descriptor\n");
+      kprintf("currently reading file %d\n", i);
       // Found the file descriptor
       file_t *file = &file_desc_tab[i];
       uint64_t file_position = file->file_position; // Current position in the file
@@ -373,7 +383,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         // Copy data from the data block to the buffer
 
         ((char *)buf)[bytes_read] = data_block.data[read_bytes];
-
+        // console_putchar(data_block.data[read_bytes]);
         read_bytes++;
         bytes_read++;
       }
@@ -487,6 +497,10 @@ int fs_getpos(file_t *file, void *arg)
  */
 int fs_setpos(file_t *file, void *arg)
 {
+  if (*(uint64_t *)arg > file->file_size)
+  {
+    return -EINVAL;
+  }
   file->file_position = *(uint64_t *)arg;
   return 0;
 }
