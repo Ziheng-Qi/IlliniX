@@ -219,6 +219,9 @@ void shell_main(struct io_intf * termio_raw) {
         }
         else if (strcmp("write", cmd) == 0)
         {
+            // BUG： command line will have bug after write (suspect this to be a result of backspace?)
+            // 1. Can delete CMD> using backspace
+            // 2. Cannot exit normally.
             if (argc < 3)
             {
                 /*argv: `cmd` `file_name` `startpos`*/
