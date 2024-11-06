@@ -175,7 +175,8 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       if (file_position + n > file_inode.byte_len)
       {
         // Check if the file is full
-        return -EINVAL;
+        // Zero byte written means EOF
+        n = file_inode.byte_len - file_position;
       }
 
       // Seek to the data block position
@@ -285,7 +286,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
   {
     if (io == file_desc_tab[i].io && file_desc_tab[i].flag == INUSE)
     {
-      console_printf("Found the file descriptor\n");
+      // console_printf("Found the file descriptor\n");
       // Found the file descriptor
       file_t *file = &file_desc_tab[i];
       uint64_t file_position = file->file_position; // Current position in the file
@@ -296,8 +297,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       {
         return result;
       }
-      // console_printf("Inode number: %d\n", inode_num);
-      // console_printf("Seeking to inode: %d\n", fs_io->ops->ctl(fs_io, IOCTL_GETPOS, NULL));
+
       // Read the inode data
       inode_t file_inode;
 
@@ -319,10 +319,12 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       }
       // check if the file_position is greater than the file size
 
-      if (file_position > file_inode.byte_len)
+      if (file_position + n > file_inode.byte_len)
       {
-        return -EINVAL;
+        // Zero byte read means EOF
+        n = file_inode.byte_len - file_position;
       }
+
       result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
       if (result < 0)
       {
@@ -376,7 +378,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         bytes_read++;
       }
       // Update the file position after reading
-      console_printf("added %d bytes to the buffer\n", bytes_read);
+      // console_printf("added %d bytes to the buffer\n", bytes_read);
       file->file_position += n;
       return n; // Return the number of bytes read
     }

@@ -16,11 +16,13 @@ CORE_OBJS = \
 	io.o \
 	device.o \
 	vioblk.o \
+	stdlib.o \
 	virtio.o \
 	console.o \
 	plic.o \
 	timer.o \
 	thread.o \
+	elf.o \
 	thrasm.o \
 	ezheap.o \
 	uart.o \
@@ -75,7 +77,7 @@ shell.elf: $(CORE_OBJS) main_shell.o companion.o
 vioblk.elf: $(CORE_OBJS) main_test_vio.o
 	$(LD) -T kernel.ld -o $@ $^
 
-test_fs.elf: $(CORE_OBJS_NO_VIO) main_tests.o companion.o
+test_fs.elf: $(CORE_OBJS) main_tests.o companion.o
 	$(LD) -T kernel.ld -o $@ $^
 
 run-test_fs: test_fs.elf
