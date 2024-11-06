@@ -36,14 +36,28 @@ extern char _kimg_end[];
 
 static void shell_main(struct io_intf * termio);
 
+size_t get_not_null_length(char *str)
+{
+    size_t len = 0;
+    while (str[len] != '\0')
+    {
+        len++;
+    }
+    return len;
+}
+
 void main(void) {
     struct io_intf * termio;
-    struct io_intf * blkio;
+    struct io_intf *blkio = NULL;
     void * mmio_base;
     int result;
     int i;
 
-    
+    console_init();
+    intr_init();
+    devmgr_init();
+    thread_init();
+    timer_init();
 
     heap_init(_kimg_end, (void*)USER_START);
 
@@ -90,9 +104,7 @@ void main(void) {
 
 void shell_main(struct io_intf * termio_raw) {
     struct io_term ioterm;
-    struct io_intf * termio;
-    void (*exe_entry)(struct io_intf*);
-    struct io_intf * exeio;
+    struct io_intf *termio;
     char cmdbuf[128];
     int tid;
     int result;
@@ -133,6 +145,8 @@ void shell_main(struct io_intf * termio_raw) {
 
         if (strcmp("exec", cmd) == 0)
         {
+            void (*exe_entry)(struct io_intf *);
+            struct io_intf *exeio;
             if (argc < 2)
             {
                 ioputs(termio, "Usage: exec <filename>");
@@ -155,7 +169,7 @@ void shell_main(struct io_intf * termio_raw) {
                 continue;
             }
 
-            tid = thread_spawn(argv[1], exe_entry, termio);
+            tid = thread_spawn(argv[1], (void *)exe_entry, termio);
             ioclose(exeio);
             ioprintf(termio, "Spawned thread %d\n", tid);
             if (tid < 0)
@@ -229,7 +243,7 @@ void shell_main(struct io_intf * termio_raw) {
                 }
                 size_t startpos = atoi(argv[2]);
                 ioprintf(termio, "Enter txt from position %d:\n", startpos);
-                char data[fil_sz - startpos];
+                char data[fil_sz];
                 result = ioseek(fs_io, startpos);
                 if (result < 0)
                 {
@@ -237,28 +251,13 @@ void shell_main(struct io_intf * termio_raw) {
                     continue;
                 }
                 ioterm_getsn(&ioterm, data, sizeof(data));
-                result = iowrite(fs_io, data, sizeof(data));
+                kprintf("null length: %d\n", get_not_null_length(data));
+                result = iowrite(fs_io, &data, get_not_null_length(data));
                 if (result < 0)
                 {
                     ioputs(termio, "Could not write to file");
                     continue;
                 }
-                char buf[fil_sz + 1];
-                size_t pos = 0;
-                result = ioseek(fs_io, pos);
-                if (result < 0)
-                {
-                    ioputs(termio, "Could not set position");
-                    continue;
-                }
-                result = ioread_full(fs_io, &buf, fil_sz);
-                if (result < 0)
-                {
-                    ioputs(termio, "Could not read file");
-                    continue;
-                }
-                buf[fil_sz] = '\0';
-                ioprintf(termio, "%s\n", buf);
 
                 ioclose(fs_io);
             }
@@ -269,3 +268,4 @@ void shell_main(struct io_intf * termio_raw) {
         }
     }
 }
+
