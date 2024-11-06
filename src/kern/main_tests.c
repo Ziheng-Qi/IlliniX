@@ -28,114 +28,104 @@ extern char _kimg_end[];
 extern char _companion_f_start[];
 extern char _companion_f_end[];
 
-static void shell_main(struct io_intf *termio);
+// static void shell_main(struct io_intf *termio);
 
 int main()
 {
-  struct io_intf *termio;
-  int result;
-  void *mmio_base;
-  int i;
+  int result = 0;
   console_init();
-  devmgr_init();
   intr_init();
+  devmgr_init();
   thread_init();
   timer_init();
-
   heap_init(_kimg_end, (void *)USER_START);
-
-  for (i = 0; i < 2; i++)
+  for (int i = 0; i < 8; i++)
   {
-    mmio_base = (void *)UART0_IOBASE;
-    mmio_base += (UART1_IOBASE - UART0_IOBASE) * i;
-    uart_attach(mmio_base, UART0_IRQNO + i);
+    void *mmio_base = (void *)VIRT0_IOBASE;
+    mmio_base += (VIRT1_IOBASE - VIRT0_IOBASE) * i;
+    virtio_attach(mmio_base, VIRT0_IRQNO + i);
   }
-
-  size_t total_size = _companion_f_end - _companion_f_start;
-
   intr_enable();
   timer_start();
-
-  struct io_lit lit_dev;
-  struct io_intf *lit_dev_intf = NULL;
-  lit_dev_intf = iolit_init(&lit_dev, _companion_f_start, total_size);
-
-  result = fs_mount(lit_dev_intf);
-
-  debug("Mounted lit_dev");
-
-  if (result != 0)
-    panic("fs_mount failed");
-
-  result = device_open(&termio, "ser", 1);
-  if (result != 0)
-    panic("Could not open ser1");
-
-  shell_main(termio);
-}
-
-void shell_main(struct io_intf *termio_raw)
-{
-  struct io_term ioterm;
-  struct io_intf *termio;
-  void (*exe_entry)(struct io_intf *);
-  struct io_intf *exeio;
-  char cmdbuf[9];
-  int tid;
-  int result;
-
-  termio = ioterm_init(&ioterm, termio_raw);
-
-  ioputs(termio, "Welcome to the companion shell\n");
-
-  for (;;)
+  struct io_intf *blkio = NULL;
+  result = device_open(&blkio, "blk", 0);
+  if (result < 0)
   {
-    ioprintf(termio, "companion_sh$> ");
-
-    ioterm_getsn(&ioterm, cmdbuf, sizeof(cmdbuf));
-    if (cmdbuf[0] == '\0')
-      continue;
-    if (strcmp(cmdbuf, "exit") == 0)
-    {
-      return;
-    }
-    result = fs_open(cmdbuf, &exeio);
-    if (result < 0)
-    {
-      if (result == -ENOENT)
-      {
-        ioprintf(termio, "%s: E:file not found\n", cmdbuf);
-      }
-      else
-      {
-        ioprintf(termio, "%s: E:unknown error with code %d\n", cmdbuf, result);
-      }
-      continue;
-    }
-    console_printf("exeio: %p\n", exeio);
-    debug("Calling elf_load(\"%s\")", cmdbuf);
-
-    result = elf_load(exeio, &exe_entry);
-
-    debug("elf_load returned %d", result);
-    console_printf("result: %d\n", result);
-    if (result < 0)
-    {
-      ioprintf(termio, "%s: Error %d\n", -result);
-    }
-    else
-    {
-      console_printf("exe_entry: %p\n", exe_entry);
-      console_printf("spawn thread\n");
-      tid = thread_spawn(cmdbuf, (void *)exe_entry, termio_raw);
-
-      if (tid < 0)
-        ioprintf(termio, "%s: Error %d\n", -result);
-      else
-        console_printf("spawned thread %d\n", tid);
-      thread_join(tid);
-    }
-
-    ioclose(exeio);
+    halt_failure();
   }
+  // struct io_lit *lit_dev;
+  // struct io_intf *lit_io;
+  // lit_io = iolit_init(&lit_dev, _companion_f_start, _companion_f_end - _companion_f_start);
+  fs_mount(blkio);
+  struct io_intf *file_io;
+  result = fs_open("helloworld.txt", &file_io);
+  if (result < 0)
+  {
+    halt_failure();
+  }
+  size_t file_size = 0;
+  result = ioctl(file_io, IOCTL_GETLEN, &file_size);
+  if (result < 0)
+  {
+    halt_failure();
+  }
+  char buf[file_size + 1];
+  size_t pos = 0;
+  result = ioseek(file_io, pos);
+  if (result < 0)
+  {
+    halt_failure();
+  }
+  result = ioread_full(file_io, &buf, file_size);
+  if (result < 0)
+  {
+    halt_failure();
+  }
+  buf[file_size] = '\0';
+  kprintf("\n\n\n\n");
+  kprintf("Printing the file\n");
+  for (int i = 0; i < file_size; i++)
+  {
+    console_putchar(buf[i]);
+  }
+
+  result = ioseek(file_io, 0);
+  if (result < 0)
+  {
+    halt_failure();
+  }
+
+  char data[] = "Changed everything and the ultimate secret is 42";
+  result = iowrite(file_io, &data, sizeof(data));
+  if (result < 0)
+  {
+    halt_failure();
+  }
+  kprintf("\n\n\n\n");
+  pos = 0;
+  struct io_intf *file_io2;
+  result = fs_open("helloworld.txt", &file_io2);
+  if (result < 0)
+  {
+    halt_failure();
+  }
+  result = ioseek(file_io2, 0);
+  if (result < 0)
+  {
+    halt_failure();
+  }
+  char buf2[file_size + 1];
+  kprintf("file size: %d\n", file_size);
+  result = ioread_full(file_io2, &buf2, file_size);
+  if (result < 0)
+  {
+    halt_failure();
+  }
+  buf2[file_size] = '\0';
+  kprintf("Printing the file after writing\n");
+  for (int i = 0; i < file_size; i++)
+  {
+    console_putchar(buf2[i]);
+  }
+  return 0;
 }

@@ -93,7 +93,7 @@ long io_lit_read(struct io_intf *io, void *buf, unsigned long bufsz)
     struct io_lit *lit = (struct io_lit *)io;
     if (lit->pos >= lit->size)
     {
-        return 0; // End of buffer
+        return -EINVAL; // End of buffer
     }
 
     size_t bytes_to_read = bufsz;
@@ -104,9 +104,7 @@ long io_lit_read(struct io_intf *io, void *buf, unsigned long bufsz)
 
     memcpy(buf, (char *)lit->buf + lit->pos, bytes_to_read);
     lit->pos += bytes_to_read;
-    // console_printf("Read %d bytes\n", bytes_to_read);
-    // console_printf("Read data: %s\n", buf);
-    return bytes_to_read;
+    return 0;
 }
 
 void lit_io_close(struct io_intf *io)
@@ -119,7 +117,7 @@ long io_lit_write(struct io_intf *io, const void *buf, unsigned long n)
     struct io_lit *lit = (struct io_lit *)io;
     if (lit->pos >= lit->size)
     {
-        return 0; // No space left to write
+        return -EINVAL; // No space left to write
     }
 
     size_t bytes_to_write = n;
@@ -130,7 +128,7 @@ long io_lit_write(struct io_intf *io, const void *buf, unsigned long n)
 
     memcpy((char *)lit->buf + lit->pos, buf, bytes_to_write);
     lit->pos += bytes_to_write;
-    return bytes_to_write;
+    return 0;
 }
 
 int io_lit_ioctl(struct io_intf *io, int cmd, void *arg)
@@ -141,14 +139,30 @@ int io_lit_ioctl(struct io_intf *io, int cmd, void *arg)
     switch (cmd)
     {
     case IOCTL_GETLEN:
-        return lit->size;
+        if (io == NULL)
+        {
+            return -1;
+        }
+        *(uint64_t *)arg = lit->size;
+        return 0;
     case IOCTL_SETPOS:
+        if (io == NULL)
+        {
+            return -1;
+        }
         lit->pos = *(uint64_t *)arg;
+
         return 0;
     case IOCTL_GETPOS:
-        return lit->pos;
+        if (io == NULL)
+        {
+            return -1;
+        }
+        *(uint64_t *)arg = lit->pos;
+        return 0;
     case IOCTL_GETBLKSZ:
-        return 4096;
+        *(uint64_t *)arg = 4096;
+        return 0;
     default:
         return -1;
     }

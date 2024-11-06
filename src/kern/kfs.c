@@ -85,8 +85,6 @@ int fs_open(const char *name, struct io_intf **io)
       {
         if (file_desc_tab[j].flag == UNUSE)
         {
-          // console_printf("File descriptor index: %d\n", i);
-          console_printf("file %s opened\n", boot_block.dir_entries[i].file_name);
           file_desc_tab[j].file_position = file_position;
           file_desc_tab[j].file_size = file_size;
           file_desc_tab[j].inode_num = inode_num;
@@ -181,7 +179,6 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 
       // Seek to the data block position
       result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
-      kprintf("file_inode.data_block_num[written_blocks]: %d\n", file_inode.data_block_num[written_blocks]);
       if (result < 0)
       {
         return result;
@@ -194,8 +191,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       {
         return result;
       }
-      kprintf("seeked to position %d\n", pos);
-      kprintf("supposed to write to position %d\n", fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
+
       result = ioread_full(fs_io, &data_block, BLOCK_SIZE);
       if (result < 0)
       {
@@ -475,7 +471,7 @@ int fs_getlen(file_t *file, void *arg)
  */
 int fs_getpos(file_t *file, void *arg)
 {
-  if (arg != NULL)
+  if (file != NULL)
   {
     *(uint64_t *)arg = file->file_position;
   }

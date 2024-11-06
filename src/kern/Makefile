@@ -27,6 +27,7 @@ CORE_OBJS = \
 	ezheap.o \
 	uart.o \
 	kfs.o \
+	elf.o \
 	# Add the names of new objects here
 
 CORE_OBJS_NO_VIO = \
@@ -72,6 +73,9 @@ all: shell.elf test_fs.elf vioblk.elf
 shell.elf: $(CORE_OBJS) main_shell.o companion.o
 	$(LD) -T kernel.ld -o $@ $^
 
+rubric_test.elf: $(CORE_OBJS) rubric_tests.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+	
 vioblk.elf: $(CORE_OBJS) main_test_vio.o
 	$(LD) -T kernel.ld -o $@ $^
 
@@ -79,6 +83,9 @@ test_fs.elf: $(CORE_OBJS) main_tests.o companion.o
 	$(LD) -T kernel.ld -o $@ $^
 
 run-test_fs: test_fs.elf
+	$(QEMU) $(QEMUOPTS)
+
+run-rubric_test: rubric_test.elf
 	$(QEMU) $(QEMUOPTS)
 
 debug-test_fs: test_fs.elf
