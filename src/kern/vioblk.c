@@ -60,6 +60,10 @@ struct vioblk_request_header {
 #define VIRTIO_BLK_S_IOERR      1
 #define VIRTIO_BLK_S_UNSUPP     2
 
+// Queue size that we use
+#define VIOBLK_Q_SIZE 1
+
+
 //           Main device structure.
 //          
 //           FIXME You may modify this structure in any way you want. It is given as a
@@ -90,12 +94,12 @@ struct vioblk_device {
 
         union {
             struct virtq_avail avail;
-            char _avail_filler[VIRTQ_AVAIL_SIZE(1)];
+            char _avail_filler[VIRTQ_AVAIL_SIZE(VIOBLK_Q_SIZE)];
         };
 
         union {
             volatile struct virtq_used used;
-            char _used_filler[VIRTQ_USED_SIZE(1)];
+            char _used_filler[VIRTQ_USED_SIZE(VIOBLK_Q_SIZE)];
         };
 
         //           The first descriptor is an indirect descriptor and is the one used in
@@ -115,6 +119,14 @@ struct vioblk_device {
 
 #define VIOBLK_ATTEMPT_MAX 10
 #define VIOBLK_SECTOR_SIZE 512 // this is the smallest unit of size used by VIRTIO, 512 Bytes
+
+#define VIOBLK_DESC_INDIRECT_ID 0
+#define VIOBLK_DESC_INDIRECT_TAB_OFFSET 1 // offset to the descriptor table pointed by the interrupt descriptor
+#define VIOBLK_DESC_HEADER_ID 0
+#define VIOBLK_DESC_DATA_ID 1
+#define VIOBLK_DESC_STATUS_ID 2
+
+
 //           INTERNAL FUNCTION DECLARATIONS
 //          
 
@@ -244,31 +256,33 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     struct virtq_desc* indirect_desc = &(dev->vq.desc[0]);  
     indirect_desc->addr = (uint64_t)(void *)(dev->vq.desc)+sizeof(struct virtq_desc); // points to the second entry in the desc[] array
     indirect_desc->flags |= VIRTQ_DESC_F_INDIRECT;
-    indirect_desc->len = 3*sizeof(struct virtq_desc);
+    indirect_desc->len = 3*sizeof(struct virtq_desc); // 3 because 1 descriptor for each of request header, data, and status
     indirect_desc->next = 0; // doesn't matter because the NEXT flag is not set
 
     struct virtq_desc* desc_tab = (void *)(dev->vq.desc)+sizeof(struct virtq_desc);
     // descriptor to the header
-    desc_tab[0].addr = (uint64_t)(void *) (&(dev->vq.req_header));
-    desc_tab[0].len = sizeof(struct vioblk_request_header); // section 2.7.5.3
-    desc_tab[0].flags |= VIRTQ_DESC_F_NEXT;
-    desc_tab[0].next = 1;
+    desc_tab[VIOBLK_DESC_HEADER_ID].addr = (uint64_t)(void *) (&(dev->vq.req_header));
+    desc_tab[VIOBLK_DESC_HEADER_ID].len = sizeof(struct vioblk_request_header); // section 2.7.5.3
+    desc_tab[VIOBLK_DESC_HEADER_ID].flags |= VIRTQ_DESC_F_NEXT;
+    desc_tab[VIOBLK_DESC_HEADER_ID].next = VIOBLK_DESC_DATA_ID; // pointing to the descriptor of the data buffer
     
     // descriptor to the data buffer (block buffer?)
-    desc_tab[1].addr = (uint64_t)(void *) (dev->blkbuf);
-    desc_tab[1].flags |= VIRTQ_DESC_F_NEXT; // we should change whether this is device-writable in the before IO operation
-    desc_tab[1].len = blksz; // so that the device know the size of the buffer
-    desc_tab[1].next = 2;
+    desc_tab[VIOBLK_DESC_DATA_ID].addr = (uint64_t)(void *) (dev->blkbuf);
+    desc_tab[VIOBLK_DESC_DATA_ID].flags |= VIRTQ_DESC_F_NEXT; // we should change whether this is device-writable in the before IO operation
+    desc_tab[VIOBLK_DESC_DATA_ID].len = blksz; // so that the device know the size of the buffer
+    desc_tab[VIOBLK_DESC_DATA_ID].next = VIOBLK_DESC_STATUS_ID; // pointing to the descriptor of the status byte
 
     //descriptor to the status BYTE;
-    desc_tab[2].addr = (uint64_t)(void *)(&(dev->vq.req_status));
-    desc_tab[2].flags |= VIRTQ_DESC_F_WRITE; // the status byte is always device writable
-    desc_tab[2].len = sizeof(uint8_t);
-    desc_tab[2].next = 0; // doesn't matter because NEXT flag is not set
+    desc_tab[VIOBLK_DESC_STATUS_ID].addr = (uint64_t)(void *)(&(dev->vq.req_status));
+    desc_tab[VIOBLK_DESC_STATUS_ID].flags |= VIRTQ_DESC_F_WRITE; // the status byte is always device writable
+    desc_tab[VIOBLK_DESC_STATUS_ID].len = sizeof(uint8_t);
+    desc_tab[VIOBLK_DESC_STATUS_ID].next = 0; // doesn't matter because NEXT flag is not set
 
     // attaches virtq_avail and virtq_used structs using the virtio_attach_virtq function
 
-    virtio_attach_virtq(dev->regs, 0, 1, (uint64_t)(void *)(&(dev->vq.desc)), (uint64_t)(void *)(&(dev->vq.used)), (uint64_t)(void *)(&(dev->vq.avail)));
+    // the size of queue is 1
+    // There's only one queue so the qid is 0
+    virtio_attach_virtq(dev->regs, 0, VIOBLK_Q_SIZE, (uint64_t)(void *)(&(dev->vq.desc)), (uint64_t)(void *)(&(dev->vq.used)), (uint64_t)(void *)(&(dev->vq.avail)));
     
     // Finally, the isr and dev are registered
     intr_register_isr(irqno, VIOBLK_IRQ_PRIO, vioblk_isr, dev);
@@ -300,10 +314,10 @@ int vioblk_open(struct io_intf ** ioptr, void * aux) {
     // sets the virtq_avail and virtq_used queues such that they are available for use.
     virtio_enable_virtq(dev->regs, 0);
 
-    dev->vq.avail.flags = 0; // we need notification
-    dev->vq.avail.idx = 0; // points to the index of the indirect descriptor
+    dev->vq.avail.flags = 0; // we need notification, so NO_NOTIF flag should not be set
+    dev->vq.avail.idx = 0; // the index of the indirect descriptor
     // dev->vq._avail_filler[] = (uint64_t)(void *)(&(dev->vq.avail)) + sizeof(struct virtq_avail);
-    dev->vq.avail.ring[0] = 0; // we would only have one request at a time 
+    dev->vq.avail.ring[0] = 0; // we would only have one request at a time, so index will always be 0
 
     // dev->vq.used.ring = (uint64_t)(void *)(&(dev->vq.used)) + sizeof(struct virtq_used);
 
