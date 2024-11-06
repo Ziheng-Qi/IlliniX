@@ -17,3 +17,5 @@ rm -f ../kern/kfs.raw
 # Move the new kfs.raw to the ../kern/ directory
 mv kfs.raw ../kern/kfs.raw
 echo Copied kfs.raw to ../kern/kfs.raw
+
+make clean

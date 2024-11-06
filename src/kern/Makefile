@@ -61,8 +61,7 @@ QEMUOPTS += -serial mon:stdio
 QEMUOPTS += -drive file=kfs.raw,id=blk0,if=none,format=raw
 QEMUOPTS += -device virtio-blk-device,drive=blk0
 QEMUOPTS += -serial pty
-test_fs.elf: $(CORE_OBJS_NO_VIOBLK) main_tests.o companion.o
-	$(LD) -T kernel.ld -o $@ $^
+
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
 # QEMU's gdb stub command line changed in 0.11
 QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
@@ -75,6 +74,9 @@ shell.elf: $(CORE_OBJS) main_shell.o companion.o
 	$(LD) -T kernel.ld -o $@ $^
 
 rubric_test.elf: $(CORE_OBJS) rubric_tests.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+	
+vioblk.elf: $(CORE_OBJS) main_test_vio.o
 	$(LD) -T kernel.ld -o $@ $^
 
 test_fs.elf: $(CORE_OBJS) main_tests.o companion.o
