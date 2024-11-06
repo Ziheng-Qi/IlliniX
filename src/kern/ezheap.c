@@ -33,7 +33,7 @@ void heap_init(void * start, void * end) {
 void * kmalloc(size_t size) {
     //           Round up to multiple of 16 bytes
     size = (size + 16-1) / 16 * 16;
-
+    // total size of the memory block
     if (size <= heap_end - heap_start)
         heap_end -= size;
     else

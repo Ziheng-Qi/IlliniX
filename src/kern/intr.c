@@ -1,13 +1,12 @@
-//           intr.c - Interrupt management
-//           
-
+//            intr.c - Interrupt management
+//           
+#include "timer.h"
 #include "intr.h"
 #include "trap.h"
 #include "halt.h"
 #include "csr.h"
-
 #include <stddef.h>
-
+#include "plic.h"
 //           INTERNAL COMPILE-TIME CONSTANT DEFINITIONS
 //          
 

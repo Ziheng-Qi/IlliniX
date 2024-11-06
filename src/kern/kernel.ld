@@ -33,7 +33,7 @@ SECTIONS {
     *(.data .data.*)
     . = ALIGN(16);
     /* This is what places the companion object in kernel memory. */
-    /* Use these labels (by declaring `extern char* _companion_f_(...)` or
+    /* Use these labels (by declaring `extern char _companion_f_(...)` or
      * similar) in your code. */
     PROVIDE(_companion_f_start = .);
     *(.companion)

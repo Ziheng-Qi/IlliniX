@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 
+#include "uart.h"
 #include "string.h"
 #include "intr.h"
 

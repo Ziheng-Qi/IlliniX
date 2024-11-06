@@ -15,9 +15,38 @@ CORE_OBJS = \
 	intr.o \
 	io.o \
 	device.o \
-	virtio.o \
 	vioblk.o \
-	console.o
+	stdlib.o \
+	virtio.o \
+	console.o \
+	plic.o \
+	timer.o \
+	thread.o \
+	elf.o \
+	thrasm.o \
+	ezheap.o \
+	uart.o \
+	kfs.o \
+	elf.o \
+	# Add the names of new objects here
+
+CORE_OBJS_NO_VIO = \
+	start.o \
+	halt.o \
+	string.o \
+	trapasm.o \
+	intr.o \
+	io.o \
+	device.o \
+	console.o \
+	plic.o \
+	thrasm.o \
+	thread.o \
+	uart.o \
+	timer.o \
+	ezheap.o \
+	kfs.o \
+	elf.o \
 	# Add the names of new objects here
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
@@ -33,22 +62,42 @@ QEMUOPTS += -drive file=kfs.raw,id=blk0,if=none,format=raw
 QEMUOPTS += -device virtio-blk-device,drive=blk0
 QEMUOPTS += -serial pty
 
-# try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
 # QEMU's gdb stub command line changed in 0.11
 QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 
-all: shell.elf
+all: shell.elf test_fs.elf vioblk.elf 
 
 shell.elf: $(CORE_OBJS) main_shell.o companion.o
 	$(LD) -T kernel.ld -o $@ $^
+
+rubric_test.elf: $(CORE_OBJS) rubric_tests.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+	
+vioblk.elf: $(CORE_OBJS) main_test_vio.o
+	$(LD) -T kernel.ld -o $@ $^
+
+test_fs.elf: $(CORE_OBJS) main_tests.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+
+run-test_fs: test_fs.elf
+	$(QEMU) $(QEMUOPTS)
+
+run-rubric_test: rubric_test.elf
+	$(QEMU) $(QEMUOPTS)
+
+debug-test_fs: test_fs.elf
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
 run-shell: shell.elf
 	$(QEMU) $(QEMUOPTS)
 
 debug-shell: shell.elf
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+
+debug-vioblk: vioblk.elf
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
 # You might want to add more here

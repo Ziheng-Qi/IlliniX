@@ -11,7 +11,7 @@
 #include "heap.h"
 #include "halt.h"
 #include "intr.h"
-
+#include <limits.h>
 //           COMPILE-TIME CONSTANT DEFINITIONS
 //          
 

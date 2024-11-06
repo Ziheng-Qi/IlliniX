@@ -2,7 +2,6 @@
 //          
 
 #include "io.h"
-#include "string.h"
 #include "error.h"
 
 #include <stddef.h>
@@ -65,15 +64,109 @@ long iowrite(struct io_intf * io, const void * buf, unsigned long n) {
     return acc;
 }
 
-//           Initialize an io_lit. This function should be called with an io_lit, a buffer, and the size of the device.
-//           It should set up all fields within the io_lit struct so that I/O operations can be performed on the io_lit
-//           through the io_intf interface. This function should return a pointer to an io_intf object that can be used 
-//           to perform I/O operations on the device.
-struct io_intf * iolit_init (
-    struct io_lit * lit, void * buf, size_t size)
+//            Initialize an io_lit. This function should be called with an io_lit, a buffer, and the size of the device.
+//            It should set up all fields within the io_lit struct so that I/O operations can be performed on the io_lit
+//            through the io_intf interface. This function should return a pointer to an io_intf object that can be used
+//            to perform I/O operations on the device.
+
+//            An I/O literal object allows a block of memory to be treated as file. I/O
+//            operations should be able to be performed via the io_intf associated with
+//            the io_lit.
+
+struct io_intf *iolit_init(
+    struct io_lit *lit, void *buf, size_t size)
 {
-    //           Implement me!
-    return &lit->io_intf;
+    static const struct io_ops ops = {
+        .close = lit_io_close,
+        .read = io_lit_read,
+        .write = io_lit_write,
+        .ctl = io_lit_ioctl};
+    lit->io_intf.ops = &ops;
+    lit->buf = buf;
+    lit->size = size;
+    lit->pos = 0;
+    return &(lit->io_intf);
+}
+
+long io_lit_read(struct io_intf *io, void *buf, unsigned long bufsz)
+{
+    struct io_lit *lit = (struct io_lit *)io;
+    if (lit->pos >= lit->size)
+    {
+        return -EINVAL; // End of buffer
+    }
+
+    size_t bytes_to_read = bufsz;
+    if (lit->pos + bufsz > lit->size)
+    {
+        bytes_to_read = lit->size - lit->pos; // Adjust to remaining bytes
+    }
+
+    memcpy(buf, (char *)lit->buf + lit->pos, bytes_to_read);
+    lit->pos += bytes_to_read;
+    return 0;
+}
+
+void lit_io_close(struct io_intf *io)
+{
+    // Nothing to do
+}
+
+long io_lit_write(struct io_intf *io, const void *buf, unsigned long n)
+{
+    struct io_lit *lit = (struct io_lit *)io;
+    if (lit->pos >= lit->size)
+    {
+        return -EINVAL; // No space left to write
+    }
+
+    size_t bytes_to_write = n;
+    if (lit->pos + n > lit->size)
+    {
+        bytes_to_write = lit->size - lit->pos; // Adjust to remaining space
+    }
+
+    memcpy((char *)lit->buf + lit->pos, buf, bytes_to_write);
+    lit->pos += bytes_to_write;
+    return 0;
+}
+
+int io_lit_ioctl(struct io_intf *io, int cmd, void *arg)
+{
+
+    struct io_lit *lit = (struct io_lit *)io;
+
+    switch (cmd)
+    {
+    case IOCTL_GETLEN:
+        if (io == NULL)
+        {
+            return -1;
+        }
+        *(uint64_t *)arg = lit->size;
+        return 0;
+    case IOCTL_SETPOS:
+        if (io == NULL)
+        {
+            return -1;
+        }
+        lit->pos = *(uint64_t *)arg;
+
+        return 0;
+    case IOCTL_GETPOS:
+        if (io == NULL)
+        {
+            return -1;
+        }
+        *(uint64_t *)arg = lit->pos;
+        return 0;
+    case IOCTL_GETBLKSZ:
+        *(uint64_t *)arg = 4096;
+        return 0;
+    default:
+        return -1;
+    }
+    return -ENOTSUP;
 }
 
 //           I/O term provides three features:
