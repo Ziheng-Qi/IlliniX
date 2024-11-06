@@ -100,6 +100,10 @@ debug-shell: shell.elf
 debug-vioblk: vioblk.elf
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
+debug-rubric_test: rubric_test.elf
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+
+
 # You might want to add more here
 
 clean:

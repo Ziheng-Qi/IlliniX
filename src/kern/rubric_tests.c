@@ -237,17 +237,17 @@ int main()
   kprintf("bad format for enum.txt\n");
   fs_close(elf_io);
   result = fs_open("helloworld.txt", &elf_io);
-  assert(result < 0);
+  assert(result >= 0);
   result = elf_load(elf_io, &entry);
   // kprintf("result: %d\n", result);
   kprintf("bad format for helloworld.txt\n");
   assert(result == -EBADFMT);
-  // fs_close(elf_io);
-  // result = fs_open("trek", &elf_io);
-  // assert(result >= 0);
-  // result = elf_load(elf_io, &entry);
-  // assert(result >= 0);
-  // assert(*entry == 0x8010527c);
+  fs_close(elf_io);
+  result = fs_open("trek", &elf_io);
+  assert(result >= 0);
+  result = elf_load(elf_io, &entry);
+  assert(result >= 0);
+  assert(*entry == (void *)0x8010527c);
   /*
    * Here ends the test for Full I/O for the ELF loader
    */

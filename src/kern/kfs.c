@@ -1,6 +1,6 @@
 #include "fs.h"
 // boot blocks for the file system
-static boot_block_t boot_block;
+static boot_block_t* boot_block;
 // io interface for the file system
 static struct io_intf *fs_io = NULL;
 // file descriptor table
@@ -21,7 +21,8 @@ int fs_mount(struct io_intf *io)
 {
   fs_io = io;
   // Allocate memory for the boot block
-  ioread_full(fs_io, &boot_block, BLOCK_SIZE);
+  boot_block = kmalloc(sizeof(boot_block_t));
+  ioread_full(fs_io, boot_block, BLOCK_SIZE);
   // Read the boot block
   // get the boot block, the boot block won't be changed after mounting
   for (int i = 0; i < MAX_FILE_OPEN; i++)
@@ -52,9 +53,9 @@ int fs_open(const char *name, struct io_intf **io)
       .read = fs_read,
       .write = fs_write,
       .ctl = fs_ioctl};
-  for (int i = 0; i < boot_block.num_dentry; i++)
+  for (int i = 0; i < boot_block->num_dentry; i++)
   {
-    if (strcmp(boot_block.dir_entries[i].file_name, name) == 0)
+    if (strcmp(boot_block->dir_entries[i].file_name, name) == 0)
     {
       // file found
       // set up a new instance of io_interface for the file struct
@@ -71,9 +72,9 @@ int fs_open(const char *name, struct io_intf **io)
       // check if the file has unique io interface
 
       // set inode_num to be the inode number of the file
-      uint64_t inode_num = boot_block.dir_entries[i].inode;
+      uint64_t inode_num = boot_block->dir_entries[i].inode;
       // seek to the inode position
-      uint64_t position = fs_base + BLOCK_SIZE + boot_block.dir_entries[i].inode * BLOCK_SIZE;
+      uint64_t position = fs_base + BLOCK_SIZE + boot_block->dir_entries[i].inode * BLOCK_SIZE;
       // console_printf("Seeking to position: %d\n", position);
       uint64_t file_position = 0;
       ioseek(fs_io, position);
@@ -159,9 +160,8 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
         return result;
       }
       // Read the inode
-      inode_t file_inode;
-
-      result = ioread_full(fs_io, &file_inode, BLOCK_SIZE);
+      inode_t* file_inode = kmalloc(sizeof(inode_t));
+      result = ioread_full(fs_io, file_inode, BLOCK_SIZE);
       if (result < 0)
       {
         return result;
@@ -170,21 +170,21 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       uint64_t written_blocks = file_position / BLOCK_SIZE;
       uint64_t written_bytes = file_position % BLOCK_SIZE;
 
-      if (file_position + n > file_inode.byte_len)
+      if (file_position + n > file_inode->byte_len)
       {
         // Check if the file is full
         // Zero byte written means EOF
-        n = file_inode.byte_len - file_position;
+        n = file_inode->byte_len - file_position;
       }
 
       // Seek to the data block position
-      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
+      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[written_blocks] * BLOCK_SIZE);
       if (result < 0)
       {
         return result;
       }
       // Read the data block
-      data_block_t data_block;
+      data_block_t* data_block = kmalloc(sizeof(data_block_t));
       size_t pos = 0;
       result = ioctl(fs_io, IOCTL_GETPOS, &pos);
       if (result < 0)
@@ -192,7 +192,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
         return result;
       }
 
-      result = ioread_full(fs_io, &data_block, BLOCK_SIZE);
+      result = ioread_full(fs_io, data_block, BLOCK_SIZE);
       if (result < 0)
       {
         return result;
@@ -205,12 +205,12 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
         if (written_bytes == BLOCK_SIZE)
         {
           // Write the current data block to disk
-          result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
+          result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[written_blocks] * BLOCK_SIZE);
           if (result < 0)
           {
             return result;
           }
-          result = iowrite(fs_io, &data_block, BLOCK_SIZE);
+          result = iowrite(fs_io, data_block, BLOCK_SIZE);
           if (result < 0)
           {
             return result;
@@ -226,14 +226,14 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
           }
 
           // Seek to the next data block position
-          result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
+          result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[written_blocks] * BLOCK_SIZE);
           if (result < 0)
           {
             return result;
           }
 
           // Read the next data block
-          result = ioread_full(fs_io, &data_block, BLOCK_SIZE);
+          result = ioread_full(fs_io, data_block, BLOCK_SIZE);
           if (result < 0)
           {
             return result;
@@ -241,18 +241,18 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
         }
 
         // Write the byte to the data block
-        data_block.data[written_bytes] = ((char *)buf)[bytes_written];
+        data_block->data[written_bytes] = ((char *)buf)[bytes_written];
         written_bytes++;
         bytes_written++;
       }
 
-      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[written_blocks] * BLOCK_SIZE);
+      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[written_blocks] * BLOCK_SIZE);
       if (result < 0)
       {
         return result;
       }
 
-      result = iowrite(fs_io, &data_block, BLOCK_SIZE);
+      result = iowrite(fs_io, data_block, BLOCK_SIZE);
       if (result < 0)
       {
         return result;
@@ -303,9 +303,10 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       }
 
       // Read the inode data
-      inode_t file_inode;
+      inode_t* file_inode = kmalloc(sizeof(inode_t));
+      memset(file_inode, 0, sizeof(inode_t));
 
-      result = ioread_full(fs_io, &file_inode, BLOCK_SIZE); // Read the inode data
+      result = ioread_full(fs_io, file_inode, BLOCK_SIZE); // Read the inode data
 
       if (result < 0)
       {
@@ -316,20 +317,20 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       uint64_t read_bytes = file_position % BLOCK_SIZE;
 
       // Seek to the data block that contains the file data
-      data_block_t data_block;
-      if (read_blocks == sizeof(file_inode.data_block_num) / sizeof(file_inode.data_block_num[0]))
+      data_block_t* data_block = kmalloc(sizeof(data_block_t));
+      if (read_blocks == sizeof(file_inode->data_block_num) / sizeof(file_inode->data_block_num[0]))
       {
         return -EINVAL;
       }
       // check if the file_position is greater than the file size
 
-      if (file_position + n > file_inode.byte_len)
+      if (file_position + n > file_inode->byte_len)
       {
         // Zero byte read means EOF
-        n = file_inode.byte_len - file_position;
+        n = file_inode->byte_len - file_position;
       }
 
-      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
+      result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[read_blocks] * BLOCK_SIZE);
       if (result < 0)
       {
         return result;
@@ -338,7 +339,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       uint64_t pos = 0;
       fs_io->ops->ctl(fs_io, IOCTL_GETPOS, &pos);
 
-      result = ioread_full(fs_io, &data_block, BLOCK_SIZE); // Read the data block
+      result = ioread_full(fs_io, data_block, BLOCK_SIZE); // Read the data block
 
       if (result < 0)
       {
@@ -362,13 +363,13 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
             return -EINVAL;
           }
           // Seek to the next data block
-          result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block.num_inodes * BLOCK_SIZE + file_inode.data_block_num[read_blocks] * BLOCK_SIZE);
+          result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[read_blocks] * BLOCK_SIZE);
           if (result < 0)
           {
             return result;
           }
 
-          result = ioread_full(fs_io, &data_block, BLOCK_SIZE); // Read the next data block
+          result = ioread_full(fs_io, data_block, BLOCK_SIZE); // Read the next data block
           if (result < 0)
           {
             return result;
@@ -376,7 +377,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         }
         // Copy data from the data block to the buffer
 
-        ((char *)buf)[bytes_read] = data_block.data[read_bytes];
+        ((char *)buf)[bytes_read] = data_block->data[read_bytes];
         // console_putchar(data_block.data[read_bytes]);
         read_bytes++;
         bytes_read++;
