@@ -1,65 +1,57 @@
+// #define _ELF_H_
 #include "elf.h"
+
 
 /**
  * @brief Loads an executable ELF file into memory and returns the entry point.
- *
- * @param io Pointer to the I/O interface, typically a file, from which the image is to be loaded.
- * @param entry Pointer to a function pointer that will be filled in with the address of the entry point of the ELF file.
- * @return int Returns 0 on success or a negative error code on error.
+ * This funcion takes an io interface (typically a file). It first does validation.
+ * It includes checking elf_header.edient[] contents. After we verify the file is valid
+ * elf file, we load the image to virtual address (p_vaddr) and set the entrypoint to
+ * elf_header.e_entry.
+ * @param io IO interface pointer
+ * @param entryptr a function pointer elf_load fills in with the address of the entry point
+ * @return int 0 if elf_load success, negative value if error 
  */
-int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io))
-{
-  Elf64_Ehdr ehdr;
 
-  int result;
-  int phnum;
-  int phentsize;
-
-  console_printf("Loading ELF file\n");
-  // Read the ELF header
-  console_printf("About to load %d bytes\n", sizeof(Elf64_Ehdr));
-  result = ioread(io, &ehdr, sizeof(Elf64_Ehdr));
-  if (result < 0)
-    return result;
-
-  // Check the ELF magic number
-  if (ehdr.e_ident[0] != ELF_MAGIC0 || ehdr.e_ident[1] != ELF_MAGIC1 || ehdr.e_ident[2] != ELF_MAGIC2 || ehdr.e_ident[3] != ELF_MAGIC3)
-    return -EBADFMT;
-
-  // Read the program headers
-  phnum = ehdr.e_phnum;
-  phentsize = ehdr.e_phentsize;
-
-  debug("phnum: %d, phentsize: %d", phnum, phentsize);
-
-  for (int i = 0; i < phnum; i++)
-  {
-    Elf64_Phdr phdr;
-
-    uint64_t pos = ehdr.e_phoff + i * phentsize;
-    result = ioseek(io, pos);
+int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
+    Elf64_Ehdr elf_hdr;
+    int result = ioread(io, &elf_hdr, sizeof(elf_hdr));
+    // read error
     if (result < 0)
-      return result;
-    result = ioread(io, &phdr, phentsize);
-    if (result < 0)
-      return result;
-
-    if (phdr.p_type == PT_LOAD)
-    {
-      if (phdr.p_vaddr < ENTRY_POINT_MIN || phdr.p_vaddr + phdr.p_filesz > ENTRY_POINT_MAX)
-        return -EINVAL;
-      ioseek(io, phdr.p_offset);
-
-      result = ioread(io, (void *)phdr.p_vaddr, phdr.p_filesz);
-      if (result < 0)
         return result;
+    // check if it is valid elf file
+    if (elf_hdr.e_ident[EI_MAG0] != ELFMAG0 || elf_hdr.e_ident[EI_MAG1] != ELFMAG1 ||
+        elf_hdr.e_ident[EI_MAG2] != ELFMAG2 || elf_hdr.e_ident[EI_MAG3] != ELFMAG3)
+        return -EBADFMT;
+    if (elf_hdr.e_ident[EI_CLASS] != ELFCLASS64)
+        return -EBADFMT;
+    if (elf_hdr.e_ident[EI_DATA] != ELFDATA2LSB)
+        return -EBADFMT;
+    if (elf_hdr.e_ident[EI_VERSION] != EV_CURRENT)
+        return -EBADFMT;
+
+    // iterate through program headers, load image if valid
+    for (int i = 0; i < elf_hdr.e_phnum; i++) {
+        Elf64_Phdr prog_hdr;
+        uint64_t pos = elf_hdr.e_phoff + i * elf_hdr.e_phentsize;
+        result = ioseek(io, pos);
+        if (result < 0)
+            return result;
+        result = ioread(io, &prog_hdr, elf_hdr.e_phentsize);
+        if (result < 0)
+            return result;
+        // check if type and section addr are both valid
+        if (prog_hdr.p_type == PT_LOAD) {
+            if (prog_hdr.p_vaddr < VALID_ADDR_LOW || prog_hdr.p_vaddr + prog_hdr.p_filesz > VALID_ADDR_HIGH)
+                return -EINVAL;
+            ioseek(io, prog_hdr.p_offset);
+            result = ioread(io, (void*) prog_hdr.p_vaddr, prog_hdr.p_filesz);
+            if (result < 0)
+                return result;
+        }
     }
-  }
-
-  // verify the entry point is set between 0x80100000 and 0x81000000
-
-  // Set the entry point
-  *entryptr = (void (*)(struct io_intf *))ehdr.e_entry;
-
-  return 0;
+    // set entry point
+    *entryptr = (void(*) (struct io_intf*)) elf_hdr.e_entry;
+    // console_printf("Entryptr: %x\n", *entryptr);
+    return 0;
 }
