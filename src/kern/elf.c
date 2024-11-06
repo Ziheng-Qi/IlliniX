@@ -2,17 +2,16 @@
 #include "elf.h"
 
 
-
-//           arg1: io interface from which to load the elf arg2: pointer to void
-//           (*entry)(struct io_intf *io), which is a function pointer elf_load fills in
-//           w/ the address of the entry point
-
-//           int elf_load(struct io_intf *io, void (**entry)(struct io_intf *io)) Loads an
-//           executable ELF file into memory and returns the entry point. The /io/
-//           argument is the I/O interface, typically a file, from which the image is to
-//           be loaded. The /entryptr/ argument is a pointer to an function pointer that
-//           will be filled in with the entry point of the ELF file.
-//           Return 0 on success or a negative error code on error.
+/**
+ * @brief Loads an executable ELF file into memory and returns the entry point.
+ * This funcion takes an io interface (typically a file). It first does validation.
+ * It includes checking elf_header.edient[] contents. After we verify the file is valid
+ * elf file, we load the image to virtual address (p_vaddr) and set the entrypoint to
+ * elf_header.e_entry.
+ * @param io IO interface pointer
+ * @param entryptr a function pointer elf_load fills in with the address of the entry point
+ * @return int 0 if elf_load success, negative value if error 
+ */
 
 int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
     Elf64_Ehdr elf_hdr;
@@ -20,7 +19,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
     // read error
     if (result < 0)
         return result;
-    // validation
+    // check if it is valid elf file
     if (elf_hdr.e_ident[EI_MAG0] != ELFMAG0 || elf_hdr.e_ident[EI_MAG1] != ELFMAG1 ||
         elf_hdr.e_ident[EI_MAG2] != ELFMAG2 || elf_hdr.e_ident[EI_MAG3] != ELFMAG3)
         return -EBADFMT;
@@ -31,7 +30,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
     if (elf_hdr.e_ident[EI_VERSION] != EV_CURRENT)
         return -EBADFMT;
 
-
+    // iterate through program headers, load image if valid
     for (int i = 0; i < elf_hdr.e_phnum; i++) {
         Elf64_Phdr prog_hdr;
         uint64_t pos = elf_hdr.e_phoff + i * elf_hdr.e_phentsize;
@@ -41,7 +40,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
         result = ioread(io, &prog_hdr, elf_hdr.e_phentsize);
         if (result < 0)
             return result;
-        // check type and all sections are valid
+        // check if type and section addr are both valid
         if (prog_hdr.p_type == PT_LOAD) {
             if (prog_hdr.p_vaddr < VALID_ADDR_LOW || prog_hdr.p_vaddr + prog_hdr.p_filesz > VALID_ADDR_HIGH)
                 return -EINVAL;
@@ -53,6 +52,6 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
     }
     // set entry point
     *entryptr = (void(*) (struct io_intf*)) elf_hdr.e_entry;
-    console_printf("entryptr: %x\n", *entryptr);
+    // console_printf("Entryptr: %x\n", *entryptr);
     return 0;
 }

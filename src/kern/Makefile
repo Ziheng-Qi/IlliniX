@@ -46,6 +46,7 @@ CORE_OBJS_NO_VIO = \
 	ezheap.o \
 	kfs.o \
 	elf.o \
+	test_elf.o \
 	# Add the names of new objects here
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
@@ -99,6 +100,14 @@ debug-shell: shell.elf
 debug-vioblk: vioblk.elf
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
+test_elf.elf: $(CORE_OBJS_NO_VIO) test_elf.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+
+run-test_elf: test_elf.elf
+	$(QEMU) $(QEMUOPTS)
+
+debug-test_elf: test_elf.elf
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 # You might want to add more here
 
 clean:

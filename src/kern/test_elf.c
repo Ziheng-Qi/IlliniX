@@ -30,8 +30,15 @@ extern char _companion_f_end[];
 
 // static void shell_main(struct io_intf *termio);
 
-int main() {
 
+// Rubric test for elf_loader. We use io_lit to do unit test, avoid using filesystem
+// and virtio. We check:
+// 1. rejects an iointf not providing a little-endian riscv64 executable
+// 2. loads required sections into kernel memory
+// 3. properly updates entry pointer reading from an io_intf
+
+int main() {
+  // Here we test 2 & 3 by performing an elfload to "trek". 
   struct io_lit lit;
   struct io_intf* trek_io = iolit_init(&lit, _companion_f_start, _companion_f_end - _companion_f_start);
 
@@ -53,6 +60,10 @@ int main() {
       console_printf("Entry pointer is NULL\n");
   }
 
+  // Here we test 1 by imitating a Elf_header but with big-endian to see if elf_load
+  // rejects it.
+  // We only have a elf_header, no program header because we are simply testing the 
+  // little-edian byte. 
   uint8_t buffer[sizeof(Elf64_Ehdr)] = {0};
     buffer[0] = 0x7f; // EI_MAG0
     buffer[1] = 'E';  // EI_MAG1
