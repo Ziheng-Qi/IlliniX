@@ -355,6 +355,7 @@ void condition_wait(struct condition *cond)
     int saved_intr_state;
 
     trace("%s(cond=<%s>) in %s", __func__, cond->name, CURTHR->name);
+    thread_state_name(CURTHR->state); // to avoid unused warning
 
     assert(CURTHR->state == THREAD_RUNNING);
 
@@ -385,16 +386,16 @@ void condition_wait(struct condition *cond)
 void condition_broadcast(struct condition *cond)
 {
     // FIXME your code goes here
-    // wakes up all threads waiting on the condition variable
-
-    while (!tlempty(&cond->wait_list))
-    {
-        struct thread *thr = tlremove(&cond->wait_list);
-        set_thread_state(thr, THREAD_READY);
-        tlinsert(&ready_list, thr);
+    // change state from waiting to ready
+    struct thread * next = cond->wait_list.head;
+    while(next != NULL){
+        set_thread_state(next, THREAD_READY);
+        next = next->list_next;
     }
-
-    tlclear(&cond->wait_list);
+    
+    // move threads in wait_list to ready_list
+    tlappend(&ready_list,&(cond->wait_list));
+    tlclear(&(cond->wait_list));
 }
 
 // INTERNAL FUNCTION DEFINITIONS

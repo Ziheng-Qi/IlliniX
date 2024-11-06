@@ -139,25 +139,13 @@ int io_lit_ioctl(struct io_intf *io, int cmd, void *arg)
     switch (cmd)
     {
     case IOCTL_GETLEN:
-        if (io == NULL)
-        {
-            return -1;
-        }
         *(uint64_t *)arg = lit->size;
         return 0;
     case IOCTL_SETPOS:
-        if (io == NULL)
-        {
-            return -1;
-        }
         lit->pos = *(uint64_t *)arg;
 
         return 0;
     case IOCTL_GETPOS:
-        if (io == NULL)
-        {
-            return -1;
-        }
         *(uint64_t *)arg = lit->pos;
         return 0;
     case IOCTL_GETBLKSZ:
