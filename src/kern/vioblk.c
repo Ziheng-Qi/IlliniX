@@ -150,6 +150,13 @@ static int vioblk_getblksz (
 
 //           Attaches a VirtIO block device. Declared and called directly from virtio.c.
 
+/**
+ * @brief 
+ * This attaches a virtio block device with the provided MMIO register and register its interrupt to the irqno provided
+ * @param regs the address of the MMIO register of the virtio block device
+ * @param irqno the interrupt request number that you want this block device to be attached to
+ * @return no return
+ */
 void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     //           FIXME add additional declarations here if needed
 
@@ -272,6 +279,13 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     __sync_synchronize();
 }
 
+/**
+ * @brief 
+ * Opens a virtio block device specificed by aux, returns an io_intf through pointer parameter
+ * @param ioptr this pointer will point to io_intf that is setup by this function, act like a return value
+ * @param aux the pointer to the device struct that needs to be opened
+ * @return 0 if open is successful, negative error code if not successful
+ */
 int vioblk_open(struct io_intf ** ioptr, void * aux) {
     //           FIXME your code here
 
@@ -307,6 +321,11 @@ int vioblk_open(struct io_intf ** ioptr, void * aux) {
 //           Must be called with interrupts enabled to ensure there are no pending
 //           interrupts (ISR will not execute after closing).
 
+/**
+ * @brief close the virtio block device with the device that the io interface specified is in
+ * @param io the io interface that is in the device struct that is about to close (make sure this is actually in a device's struct)
+ * @return no return value
+ */
 void vioblk_close(struct io_intf * io) {
     //           FIXME your code here
     struct vioblk_device * const dev = (void *) io - offsetof(struct vioblk_device, io_intf);
@@ -323,6 +342,10 @@ void vioblk_close(struct io_intf * io) {
 }
 
 /**
+ * @brief performs a single block io request (read/write to a signle block) with the provided device struct, block number and op_type
+ * @param dev the pointer to the device that is performing this io
+ * @param blk_no the block number that this io request will access
+ * @param op_type read or write, can be VIRTIO_BLK_T_IN or VIRTIO_BLK_T_OUT
  * @return 0 if the read/write is success, -1 if not success
  */
 int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_t op_type){
@@ -398,6 +421,17 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
     return -1;
 }
 
+/**
+ * @brief performs a read from a block device indicated by the io_intf, result will be copied to the buf specified.
+ * Will only perform read from a single block (if used with ioread())
+ * This function is compatible with ioread_full() to perform arbitrary length data reads (from multiple blocks).
+ * Will read no more than bufsz
+ * @param io the pointer to the io_intf contained in the device struct
+ * @param buf the pointer to the buf that the result will be in
+ * @param bufsz the maximum length of data that a single call will read
+ * @return the number of bytes read into the buf, as required by io_ops
+ * 
+ */
 long vioblk_read (
     struct io_intf * restrict io,
     void * restrict buf,
@@ -437,6 +471,15 @@ long vioblk_read (
     return end_pos - start_pos;
 }
 
+/**
+ * @brief performs a write to a block device indicated by the io_intf, using data in buf.
+ * Will only perform write to a single block.
+ * This function is compatible with iowrite() to perform arbitrary length data writes (to multiple blocks).
+ * Will write no more than bufsz
+ * @param io the pointer to the io_intf contained in the device struct
+ * @param buf the pointer to the buffer in which the data writing to the block device is from
+ * @param n the requested length of data to write, might not write all in a single call, to write all, used iowrite()
+ */
 long vioblk_write (
     struct io_intf * restrict io,
     const void * restrict buf,
@@ -489,6 +532,15 @@ long vioblk_write (
     return end_pos - start_pos;
 }
 
+/**
+ * @brief virtio block device io control function, as specified by io_ops.
+ * can perform getlen, getpos, setpos, and getblksz functions as specified by cmd.
+ * Arguments to these functions are passed through arg
+ * @param io the pointer to the io_intf contained in the device struct
+ * @param cmd the type of the specific io control function that you want to execute
+ * @param arg the argument to pass into the io control functions (including pointers to return values)
+ * @return 0 if successful, negative if error
+ */
 int vioblk_ioctl(struct io_intf * restrict io, int cmd, void * restrict arg) {
     struct vioblk_device * const dev = (void*)io -
         offsetof(struct vioblk_device, io_intf);
@@ -509,6 +561,14 @@ int vioblk_ioctl(struct io_intf * restrict io, int cmd, void * restrict arg) {
     }
 }
 
+/**
+ * @brief the interrupt service routine for virtio block device, aux points to the device triggering this isr.
+ * If there's a used buffer notification from the block device, it will broadcast the condition used_updated in the device
+ * to continue execute a read/write operation.
+ * @param irqno the interrupt request number of the device that triggered this isr
+ * @param aux the pointer to the device struct triggered this isr
+ * @return no return 
+ */
 void vioblk_isr(int irqno, void * aux) {
     //           FIXME your code here
     struct vioblk_device * const dev = aux;
@@ -525,6 +585,12 @@ void vioblk_isr(int irqno, void * aux) {
     }
 }
 
+/**
+ * @brief Get the total length in bytes of the block device, value is returned through the lenptr
+ * @param dev the device that you want to ask about, 
+ * @param lenptr the pointer to the value that you want to obtain, result will be put here
+ * @return 0 if success, negative if error
+ */
 int vioblk_getlen(const struct vioblk_device * dev, uint64_t * lenptr) {
     //           FIXME your code here
     if (lenptr == NULL)
@@ -535,6 +601,12 @@ int vioblk_getlen(const struct vioblk_device * dev, uint64_t * lenptr) {
     return 0;
 }
 
+/**
+ * @brief Get the current cursor position in disk which is reading from/writing to
+ * @param dev the device that you want to access
+ * @param posptr the pointer to the value that you want to obtain, result will be put here
+ * @return 0 if success, negative if error
+ */
 int vioblk_getpos(const struct vioblk_device * dev, uint64_t * posptr) {
     //           FIXME your code here
     if (posptr == NULL)
@@ -545,6 +617,12 @@ int vioblk_getpos(const struct vioblk_device * dev, uint64_t * posptr) {
     return 0;
 }
 
+/**
+ * @brief Set the current cursor position in disk which is reading from/writing to
+ * @param dev the device that you want to access
+ * @param posptr the pointer to the value that you want to set
+ * @return 0 if success, negative if error
+ */
 int vioblk_setpos(struct vioblk_device * dev, const uint64_t * posptr) {
     //           FIXME your code here
     
@@ -556,6 +634,12 @@ int vioblk_setpos(struct vioblk_device * dev, const uint64_t * posptr) {
     return 0;
 }
 
+/**
+ * @brief Gets the block size of the block device
+ * @param dev the device that you want to access
+ * @param posptr the pointer to the value that you want to get, result will be put here
+ * @return 0 if success, negative if error
+ */
 int vioblk_getblksz (
     const struct vioblk_device * dev, uint32_t * blkszptr)
 {
