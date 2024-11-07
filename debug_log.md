@@ -93,4 +93,7 @@ add
 // memcpy from dev->blkbuf to buf (from function paramter)
 dev->bufblkno = blkn_no;
 ```
+### Elf Loader
 
+In `elf_load`, we cannot use `Elf_hdr` pointer, which may cause warning. We also notice we should check `p_type` first before checking valid load section address.
+They are not parallel conditions.
