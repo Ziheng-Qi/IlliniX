@@ -88,6 +88,19 @@ struct io_intf *iolit_init(
     return &(lit->io_intf);
 }
 
+/**
+ * @brief Reads data from an io_lit interface into a buffer.
+ *
+ * This function reads up to `bufsz` bytes from the `io` interface into the
+ * provided buffer `buf`. It adjusts the number of bytes read if the end of
+ * the buffer is reached.
+ *
+ * @param io A pointer to the io_intf structure representing the I/O interface.
+ * @param buf A pointer to the buffer where the read data will be stored.
+ * @param bufsz The maximum number of bytes to read into the buffer.
+ * @return Returns 0 on success, or -EINVAL if the end of the buffer is reached.
+ */
+
 long io_lit_read(struct io_intf *io, void *buf, unsigned long bufsz)
 {
     struct io_lit *lit = (struct io_lit *)io;
@@ -107,10 +120,32 @@ long io_lit_read(struct io_intf *io, void *buf, unsigned long bufsz)
     return 0;
 }
 
+/**
+ * @brief Closes the given I/O interface.
+ *
+ * This function is a placeholder for closing an I/O interface.
+ * Currently, it does not perform any operations.
+ *
+ * @param io A pointer to the I/O interface to be closed.
+ */
+
 void lit_io_close(struct io_intf *io)
 {
     // Nothing to do
 }
+
+/**
+ * @brief Writes data to an io_lit interface.
+ *
+ * This function writes up to `n` bytes from the buffer `buf` to the io_lit
+ * interface `io`. If there is not enough space to write all `n` bytes, it
+ * writes as many bytes as possible.
+ *
+ * @param io Pointer to the io_intf structure representing the io_lit interface.
+ * @param buf Pointer to the buffer containing the data to be written.
+ * @param n Number of bytes to write from the buffer.
+ * @return Returns 0 on success, or -EINVAL if there is no space left to write.
+ */
 
 long io_lit_write(struct io_intf *io, const void *buf, unsigned long n)
 {
@@ -131,6 +166,25 @@ long io_lit_write(struct io_intf *io, const void *buf, unsigned long n)
     return 0;
 }
 
+/**
+ * @brief Handle IO control commands for a given IO interface.
+ *
+ * This function processes various IO control commands (ioctl) for a given
+ * IO interface. It supports commands to get the length, set the position,
+ * get the position, and get the block size of the IO interface.
+ *
+ * @param io Pointer to the IO interface structure.
+ * @param cmd The ioctl command to be executed.
+ * @param arg Pointer to the argument for the ioctl command, used for passing arguments and returning results.
+ *
+ * @return 0 on success, -1 on unsupported command, or -ENOTSUP if the command is not supported.
+ *
+ * Supported commands:
+ * - IOCTL_GETLEN: Get the length of the IO interface. The length is stored in the location pointed to by arg.
+ * - IOCTL_SETPOS: Set the position of the IO interface. The new position is obtained from the location pointed to by arg.
+ * - IOCTL_GETPOS: Get the current position of the IO interface. The position is stored in the location pointed to by arg.
+ * - IOCTL_GETBLKSZ: Get the block size of the IO interface. The block size (4096) is stored in the location pointed to by arg.
+ */
 int io_lit_ioctl(struct io_intf *io, int cmd, void *arg)
 {
 
