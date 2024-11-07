@@ -162,6 +162,13 @@ static int vioblk_getblksz (
 
 //           Attaches a VirtIO block device. Declared and called directly from virtio.c.
 
+static const struct io_ops vio_ops = {
+    .close = vioblk_close,
+    .read = vioblk_read,
+    .write = vioblk_write,
+    .ctl = vioblk_ioctl,
+};
+
 /**
  * @brief 
  * This attaches a virtio block device with the provided MMIO register and register its interrupt to the irqno provided
@@ -174,12 +181,7 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
 
     // this has to be static because io_intf in main_shell.c is not initilaized
     // this is similar to uart_ops in uart.c
-    static const struct io_ops vio_ops = {
-        .close = vioblk_close,
-        .read = vioblk_read,
-        .write = vioblk_write,
-        .ctl = vioblk_ioctl,
-    };
+
 
     virtio_featset_t enabled_features, wanted_features, needed_features;
     struct vioblk_device * dev;

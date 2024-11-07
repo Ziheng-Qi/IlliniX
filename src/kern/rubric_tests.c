@@ -123,6 +123,7 @@ int main()
   {
     console_putchar(buf3[i]);
   }
+  kprintf("\n");
   assert(strcmp(buf3, buf) == 0);
 
   /*
@@ -160,4 +161,95 @@ int main()
   // restore the original boot block
   ioseek(blkio, 0);
   result = iowrite(blkio, &boot_block, BLOCK_SIZE);
+  assert(result >= 0);
+  ioseek(blkio, 0);
+
+  /*
+   * Here ends the test for Full I/O for the vioblk device
+   */
+
+  /*
+   * Here starts the test for Full I/O for the file system driver
+   */
+
+  result = fs_mount(blkio);
+  assert(result >= 0);
+  struct io_intf *fs_io1;
+  result = fs_open("helloworld.txt", &fs_io1);
+  assert(result >= 0);
+  struct io_intf *fs_io2;
+  result = fs_open("helloworld.txt", &fs_io2);
+  assert(result >= 0);
+  assert(fs_io1 != fs_io2);
+  // Get size
+  size_t size;
+  result = ioctl(fs_io1, IOCTL_GETLEN, &size);
+  assert(size == 435);
+  char read_gold[] = "[Chorus]";
+  char read_buf[8];
+  result = ioread_full(fs_io1, read_buf, 8);
+  assert(result >= 0);
+
+  for (int i = 0; i < 8; i++)
+  {
+    console_putchar(read_buf[i]);
+    console_putchar(' ');
+    console_putchar(read_gold[i]);
+    console_putchar('\n');
+    assert(read_buf[i] == read_gold[i]);
+  }
+
+  result = ioctl(fs_io1, IOCTL_GETPOS, &pos);
+  assert(pos == 8);
+  result = ioctl(fs_io2, IOCTL_GETPOS, &pos);
+  assert(pos == 0);
+  result = ioseek(fs_io2, 10);
+  assert(result >= 0);
+  result = ioctl(fs_io2, IOCTL_GETPOS, &pos);
+  assert(pos == 10);
+  char write_buf[] = "reveal the ultimate secrect";
+  result = iowrite(fs_io2, write_buf, sizeof(write_buf));
+  assert(result >= 0);
+  char read_buf2[sizeof(write_buf)];
+  result = ioseek(fs_io1, 10);
+  assert(result >= 0);
+  result = ioread_full(fs_io1, read_buf2, sizeof(write_buf));
+  assert(result >= 0);
+  assert(strcmp(read_buf2, write_buf) == 0);
+  size_t blk_sz;
+  result = ioctl(fs_io1, IOCTL_GETBLKSZ, &blk_sz);
+  assert(blk_sz == 4096);
+  fs_close(fs_io1);
+  fs_close(fs_io2);
+
+  /*
+   * Here ends the test for Full I/O for the file system driver
+   */
+  /*
+   * Here starts the test for Full I/O for the ELF loader
+   */
+  struct io_intf *elf_io;
+  result = fs_open("enum.txt", &elf_io);
+  assert(result >= 0);
+  void (*entry)(struct io_intf *io) = NULL;
+  result = elf_load(elf_io, &entry);
+  assert(result == -EBADFMT);
+  kprintf("bad format for enum.txt\n");
+  fs_close(elf_io);
+  result = fs_open("helloworld.txt", &elf_io);
+  assert(result >= 0);
+  result = elf_load(elf_io, &entry);
+  // kprintf("result: %d\n", result);
+  kprintf("bad format for helloworld.txt\n");
+  assert(result == -EBADFMT);
+  fs_close(elf_io);
+  result = fs_open("trek", &elf_io);
+  assert(result >= 0);
+  result = elf_load(elf_io, &entry);
+  assert(result >= 0);
+  assert(*entry == (void *)0x8010527c);
+  /*
+   * Here ends the test for Full I/O for the ELF loader
+   */
+  kprintf("All tests passed!\n");
 }
