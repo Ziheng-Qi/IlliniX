@@ -22,6 +22,7 @@ int fs_mount(struct io_intf *io)
   fs_io = io;
   // Allocate memory for the boot block
   boot_block = kmalloc(sizeof(boot_block_t));
+  ioseek(fs_io, 0);
   ioread_full(fs_io, boot_block, BLOCK_SIZE);
   // Read the boot block
   // get the boot block, the boot block won't be changed after mounting

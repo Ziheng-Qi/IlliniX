@@ -84,14 +84,14 @@ int main()
    */
 
   char buf[] = "Hello, World!";
-  char read_buffer[5];
+  char read_buffer[5]; // we want to test 5 bytes read
   lit_io = iolit_init(&lit_dev, buf, sizeof(buf));
   assert(lit_io != NULL);
   // read test:
   result = ioread_full(lit_io, &read_buffer, sizeof(read_buffer));
   assert(result >= 0);
   char ans[5];
-  strncpy(ans, buf, 5);
+  strncpy(ans, buf, 5); //print the 5 bytes read
   for (int i = 0; i < 5; i++)
   {
     console_putchar(read_buffer[i]);
@@ -134,18 +134,18 @@ int main()
    * Here starts the test for Full I/O for the vioblk device
    */
   struct io_intf *blkio = NULL;
-  result = device_open(&blkio, "blk", 0);
+  result = device_open(&blkio, "blk", 0); // calls vioblk_open
   assert(result >= 0);
   boot_block_t boot_block;
   // read the boot block
   result = ioread(blkio, &boot_block, BLOCK_SIZE);
   assert(result >= 0);
   // check if the boot block has been read correctly
-  assert(boot_block.num_dentry == 3);
-  assert(boot_block.num_inodes == 3);
-  assert(boot_block.num_data == 14);
+  assert(boot_block.num_dentry == 3); // number of dentries for the test image
+  assert(boot_block.num_inodes == 3); // number of inodes for the test image
+  assert(boot_block.num_data == 14); // number of data blocks for the test image
   boot_block_t boot_block2 = boot_block;
-  boot_block2.num_dentry = 4;
+  boot_block2.num_dentry = 4; // number of inodes for the test image
   ioseek(blkio, 0);
   result = iowrite(blkio, &boot_block2, BLOCK_SIZE);
   assert(result >= 0);
@@ -155,15 +155,27 @@ int main()
   result = ioread(blkio, &boot_block3, BLOCK_SIZE);
   assert(result >= 0);
   // check if the boot block has been updated
-  assert(boot_block3.num_dentry == 4);
-  assert(boot_block3.num_inodes == 3);
-  assert(boot_block3.num_data == 14);
+  assert(boot_block3.num_dentry == 4); // number of dentry for the test image
+  assert(boot_block3.num_inodes == 3); // number of inodes for the test image
+  assert(boot_block3.num_data == 14); // number of data blocks for the test image
   // restore the original boot block
   ioseek(blkio, 0);
   result = iowrite(blkio, &boot_block, BLOCK_SIZE);
   assert(result >= 0);
   ioseek(blkio, 0);
+  int length;
+  size_t target_pos, curr_pos, blksz;
+  target_pos = 1; // random pos to test
+  blkio->ops->ctl(blkio, IOCTL_GETLEN, &length);
+  blkio->ops->ctl(blkio, IOCTL_GETBLKSZ, &blksz);
+  blkio->ops->ctl(blkio, IOCTL_SETPOS, &target_pos);
+  blkio->ops->ctl(blkio, IOCTL_GETPOS, &curr_pos);
+  assert(curr_pos == target_pos);
+  kprintf("%d", length);
+  assert(length == 73728); // length for the test image
+  assert(blksz == 512); // default block size
 
+  ioseek(blkio,0);
   /*
    * Here ends the test for Full I/O for the vioblk device
    */
@@ -184,9 +196,9 @@ int main()
   // Get size
   size_t size;
   result = ioctl(fs_io1, IOCTL_GETLEN, &size);
-  assert(size == 435);
+  assert(size == 435); // the size of the file helloworld.txt in our test image
   char read_gold[] = "[Chorus]";
-  char read_buf[8];
+  char read_buf[8]; // we want to test 8 bytes read "[Chorus]"
   result = ioread_full(fs_io1, read_buf, 8);
   assert(result >= 0);
 
@@ -203,22 +215,22 @@ int main()
   assert(pos == 8);
   result = ioctl(fs_io2, IOCTL_GETPOS, &pos);
   assert(pos == 0);
-  result = ioseek(fs_io2, 10);
+  result = ioseek(fs_io2, 10); // set pose to 10
   assert(result >= 0);
   result = ioctl(fs_io2, IOCTL_GETPOS, &pos);
-  assert(pos == 10);
+  assert(pos == 10); // the pose get should be 10 as well
   char write_buf[] = "reveal the ultimate secrect";
   result = iowrite(fs_io2, write_buf, sizeof(write_buf));
   assert(result >= 0);
   char read_buf2[sizeof(write_buf)];
-  result = ioseek(fs_io1, 10);
+  result = ioseek(fs_io1, 10); // set pose to 10 again, the read result should be the same we wrote
   assert(result >= 0);
   result = ioread_full(fs_io1, read_buf2, sizeof(write_buf));
   assert(result >= 0);
   assert(strcmp(read_buf2, write_buf) == 0);
   size_t blk_sz;
   result = ioctl(fs_io1, IOCTL_GETBLKSZ, &blk_sz);
-  assert(blk_sz == 4096);
+  assert(blk_sz == 4096); // the default file block size
   fs_close(fs_io1);
   fs_close(fs_io2);
 
@@ -247,7 +259,7 @@ int main()
   assert(result >= 0);
   result = elf_load(elf_io, &entry);
   assert(result >= 0);
-  assert(*entry == (void *)0x8010527c);
+  assert(*entry == (void *)0x8010527c); // the entry address of trek after link
   /*
    * Here ends the test for Full I/O for the ELF loader
    */
