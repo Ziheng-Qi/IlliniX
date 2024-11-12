@@ -12,8 +12,6 @@
         .text
         .global _thread_swtch
         .type   _thread_swtch, @function
-        
-        .extern thread_exit
 
 _thread_swtch:
 
@@ -62,98 +60,87 @@ _thread_swtch:
         ld      s2, 2*8(tp)
         ld      s1, 1*8(tp)
         ld      s0, 0*8(tp)
-
-
-
+                
         ret
 
         .global _thread_setup
         .type   _thread_setup, @function
-        
+
 # void _thread_setup (
 #      struct thread * thr,             in a0
 #      void * sp,                       in a1
-#      void (*start)(void * arg),       in a2
+#      void (*start)(void *, void *),   in a2
 #      void * arg)                      in a3
 #
 # Sets up the initial context for a new thread. The thread will begin execution
-# in /start/, receiving /arg/ as the first argument. 
+# in /start/, receiving the five arguments passed to _thread_set after /start/.
 
 _thread_setup:
-        # FIXME your code goes here
+        # Write initial register values into struct thread_context, which is the
+        # first member of struct thread.
         
-        # Save the stack pointer in the thread structure.
-        # this function will only initial the context, which is the first struct of the thread struct
-        
-        # a1 is the stack pointer and stored in the thread struct
-        
-        sd      a1, 13*8(a0)
+        sd      a1, 13*8(a0)    # Initial sp
+        sd      a2, 11*8(a0)    # s11 <- start
+        sd      a3, 0*8(a0)     # s0 <- arg 0
+        sd      a4, 1*8(a0)     # s1 <- arg 1
+        sd      a5, 2*8(a0)     # s2 <- arg 2
+        sd      a6, 3*8(a0)     # s3 <- arg 3
+        sd      a7, 4*8(a0)     # s4 <- arg 4
 
-        la      t0, _thread_start
+        # put address of thread entry glue into t1 and continue execution at 1f
 
-        # Save the start function and argument in the thread structure.
-        sd      t0, 12*8(a0)
-        # a2 is the start function and stored in the thread struct, with a3 as the argument
-        sd      a2, 0*8(a0)
-        sd      a3, 1*8(a0)
-        sd      zero, 2*8(a0)
-        sd      zero, 3*8(a0)
-        sd      zero, 4*8(a0)
-        sd      zero, 5*8(a0)
-        sd      zero, 6*8(a0)
-        sd      zero, 7*8(a0)
-        sd      zero, 8*8(a0)
-        sd      zero, 9*8(a0)
-        sd      zero, 10*8(a0)
-        sd      zero, 11*8(a0)
+        jal     t0, 1f
 
+        # The glue code below is executed when we first switch into the new thread
+
+        la      ra, thread_exit # child will return to thread_exit
+        mv      a0, s0          # get arg argument to child from s0
+        mv      a1, s1          # get arg argument to child from s0
+        mv      fp, sp          # frame pointer = stack pointer
+        jr      s11             # jump to child entry point (in s1)
+
+1:      # Execution of _thread_setup continues here
+
+        sd      t0, 12*8(a0)    # put address of above glue code into ra slot
 
         ret
 
-        .global _thread_start
-        .type   _thread_start, @function
+        .global _thread_finish_jump
+        .type   _thread_finish_jump, @function
 
-# void _thread_start(void (*start)(void * arg), void * arg)
-
-# This function is called by the scheduler to start a new thread. It is called
-# with the start function and argument that were passed to _thread_setup. The
-# function should return to thread_exit when the thread is done.
-
-_thread_start:
-        # passing arguments to the start function
-        mv      a0, s1
-        mv      a1, s0
-
-        jalr    ra, a1, 0
-
-        call    thread_exit  
+# void __attribute__ ((noreturn)) _thread_finish_jump (
+#      struct thread_stack_anchor * stack_anchor,
+#      uintptr_t usp, uintptr_t upc, ...);
 
 
+_thread_finish_jump:
+        # While in user mode, sscratch points to a struct thread_stack_anchor
+        # located at the base of the stack, which contains the current thread
+        # pointer and serves as our starting stack pointer.
 
-        # thread_exit will never return
-
+        # TODO: FIXME your code here
 
 
 # Statically allocated stack for the idle thread.
 
-        .section        .data.idle_stack
-        .align          16
+        .section        .data.stack, "wa", @progbits
+        .balign          16
         
         .equ            IDLE_STACK_SIZE, 1024
-        .equ            IDLE_GUARD_SIZE, 0
 
-        .global         _idle_stack
-        .type           _idle_stack, @object
-        .size           _idle_stack, IDLE_STACK_SIZE
+        .global         _idle_stack_lowest
+        .type           _idle_stack_lowest, @object
+        .size           _idle_stack_lowest, IDLE_STACK_SIZE
 
-        .global         _idle_guard
-        .type           _idle_guard, @object
-        .size           _idle_guard, IDLE_GUARD_SIZE
+        .global         _idle_stack_anchor
+        .type           _idle_stack_anchor, @object
+        .size           _idle_stack_anchor, 2*8
 
-_idle_stack:
+_idle_stack_lowest:
         .fill   IDLE_STACK_SIZE, 1, 0xA5
 
-_idle_guard:
-        .fill   IDLE_GUARD_SIZE, 1, 0x5A
+_idle_stack_anchor:
+        .global idle_thread # from thread.c
+        .dword  idle_thread
+        .fill   8
         .end
-

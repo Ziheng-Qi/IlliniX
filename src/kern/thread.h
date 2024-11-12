@@ -9,6 +9,12 @@
 
 struct thread; // forward decl.
 
+struct thread_stack_anchor {
+    struct thread * thread;
+    uint64_t reserved;
+};
+
+
 struct thread_list {
     struct thread * head;
     struct thread * tail;
@@ -22,7 +28,7 @@ struct condition {
 // EXPORTED GLOBAL VARIABLES
 // 
 
-extern char thread_initialized; // initially 0, set to 1 by thread_init
+extern char thrmgr_initialized;
 
 // EXPORTED FUNCTION DECLARATIONS
 //
@@ -63,6 +69,24 @@ extern int thread_join(int tid);
 
 extern void thread_exit(void) __attribute__ ((noreturn));
 
+extern void __attribute__ ((noreturn)) thread_jump_to_user (
+    uintptr_t usp, uintptr_t upc);
+
+
+// Returns a pointer to the process struct of a thread's process, or NULL if the
+// specified thread does not have an associated process (e.g. idle).
+
+extern struct process * thread_process(int tid);
+
+// Sets a thread's associated process. The /proc/ argument may be NULL if the
+// thread is a kernel thread (e.g. idle).
+
+extern void thread_set_process(int tid, struct process * proc);
+
+// Returns the name of a thread.
+
+extern const char * thread_name(int tid);
+
 // void condition_init(struct condition * cond, const char * name)
 // Initializes a condition variable. Argument /cond/ is a pointer to a struct
 // condition to initialize. Argument /name/ is the name of the thread, which may
@@ -82,9 +106,12 @@ extern void condition_init(struct condition * cond, const char * name);
 extern void condition_wait(struct condition * cond);
 
 // void condition_broadcast(struct condition * cond)
-// Marks any threads waiting on the condition runnable. condition_broadcast may
-// be called from an ISR. Calling condition_broadcast() does not affect the
-// currently running thread.
+
+// Wakes up all threads waiting on a condition. This function may be called from
+// an ISR. Calling condition_broadcast() does not cause a context switch from
+// the currently running thread.
+// Waiting threads are added to the ready-to-run list in the order they were
+// added to the wait queue.
 
 extern void condition_broadcast(struct condition * cond);
 

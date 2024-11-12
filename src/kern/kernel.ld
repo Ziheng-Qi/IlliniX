@@ -1,3 +1,5 @@
+/* Based on linker script from the xv6-riscv project. */
+
 OUTPUT_ARCH("riscv")
 
 PHDRS {
@@ -10,6 +12,8 @@ SECTIONS {
 
   . = 0x80000000;
 
+  PROVIDE(_kimg_start = .);
+
   .text (READONLY) : {
     PROVIDE(_kimg_text_start = .);
     start.o (.text.start)
@@ -20,21 +24,21 @@ SECTIONS {
   } :text
 
   .rodata : {
+    PROVIDE(_kimg_rodata_start = .);
     *(.srodata .srodata.*)
     . = ALIGN(16);
     *(.rodata .rodata.*)
     . = ALIGN(16);
+    PROVIDE(_kimg_rodata_end = .);
     . = ALIGN(4096);
   } :data
 
   .data : {
+    PROVIDE(_kimg_data_start = .);
     *(.sdata .sdata.*)
     . = ALIGN(16);
     *(.data .data.*)
     . = ALIGN(16);
-    /* This is what places the companion object in kernel memory. */
-    /* Use these labels (by declaring `extern char _companion_f_(...)` or
-     * similar) in your code. */
     PROVIDE(_companion_f_start = .);
     *(.companion)
     PROVIDE(_companion_f_end = .);
@@ -42,12 +46,12 @@ SECTIONS {
   } :data
 
   .bss : {
-    PROVIDE(_kimg_bss_start = .);
+    *(.data.pagetable)
     *(.sbss .sbss.*)
     . = ALIGN(16);
     *(.bss .bss.*)
     . = ALIGN(16);
-    PROVIDE(_kimg_bss_end = .);
+    PROVIDE(_kimg_data_end = .);
     . = ALIGN(4096);
   } :data
   
