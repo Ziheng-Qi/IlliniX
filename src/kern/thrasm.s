@@ -119,6 +119,7 @@ _thread_finish_jump:
         # pointer and serves as our starting stack pointer.
 
         # TODO: FIXME your code here
+        
 
 
 # Statically allocated stack for the idle thread.

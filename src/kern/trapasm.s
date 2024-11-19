@@ -61,22 +61,7 @@
         csrw    sstatus, t6
         .endm
         
-        .macro save_ustatus_and_uepc
-        csrr    t6, ustatus
-        sd      t6, 32*8(sp)
-        csrr    t6, sepc
-        sd      t6, 33*8(sp)
-        .endm
-
-       .macro  restore_ustatus_and_uepc
-        # Restores sstatus and sepc from trap frame to which sp points. We use
-        # t6 as a temporary, so must be used after this macro, not before.
-
-        ld      t6, 33*8(sp)
-        csrw    uepc, t6
-        ld      t6, 32*8(sp)
-        csrw    ustatus, t6
-        .endm 
+        
 
         .macro  restore_gprs_except_t6_and_sp
 
@@ -170,11 +155,11 @@ _trap_entry_from_umode:
 
 
         # TODO: FIXME your code here
-
-        addi    sp, sp, -34*8      # allocate space for trap frame
-        sd      t6, 31*8(sp)         # save t6 (x31) in trap frame
-        addi    t6, sp, 34*8       # save original sp
-        sd      t6, 2*8(sp)          #
+        csrr    sp, sscratch
+        addi    sp, sp, -34*8           # allocate space for trap frame
+        sd      t6, 31*8(sp)            # save t6 (x31) in trap frame
+        addi    t6, sp, 34*8            # save original sp
+        sd      t6, 2*8(sp)             #
         
         # We're now in S mode, so update our trap handler address to
         # _trap_entry_from_smode.
@@ -182,7 +167,7 @@ _trap_entry_from_umode:
         # TODO: FIXME your code here
         
         save_gprs_except_t6_and_sp
-        save_ustatus_and_uepc
+        save_sstatus_and_sepc
 
         call    trap_umode_cont
         # U mode handlers return here because the call instruction above places
@@ -192,7 +177,7 @@ _trap_entry_from_umode:
 
         # TODO: FIXME your code here
 
-        restore_ustatus_and_uepc
+        restore_sstatus_and_sepc
         restore_gprs_except_t6_and_sp
 
         ld      t6, 31*8(sp)
@@ -204,9 +189,9 @@ _trap_entry_from_umode:
 trap_umode_cont:
         
         # TODO: FIXME your code here
-        csrr a0, ucause
+        csrr a0, scause
         mv a1, sp
-        
+
         bgez a0, umode_excp_handler
 
         slli a0, a0, 1

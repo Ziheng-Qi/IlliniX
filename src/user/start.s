@@ -2,7 +2,8 @@
 #
 
         .text
-
+        .extern _exit
+        .type   _exit, @function
         .global _start
         .type   _start, @function
 _start:

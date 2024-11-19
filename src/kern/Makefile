@@ -19,6 +19,7 @@ CORE_OBJS = \
 	timer.o \
 	thread.o \
 	thrasm.o \
+	kfs.o \
 	ezheap.o \
 	io.o \
 	device.o \
@@ -27,7 +28,8 @@ CORE_OBJS = \
 	vioblk.o \
 	console.o \
 	excp.o \
-	memory.o
+	memory.o \
+	syscall.o 
 	# Add more object files here
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
