@@ -61,4 +61,8 @@ extern void smode_excp_handler(unsigned int code, struct trap_frame * tfr);
 extern void umode_excp_handler(unsigned int code, struct trap_frame * tfr);
 extern void intr_handler(int code, struct trap_frame * tfr);
 
+
+// Imported function definition
+extern void _trap_entry_from_umode(void);
+
 #endif // _TRAP_H_

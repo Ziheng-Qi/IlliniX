@@ -119,6 +119,10 @@ _thread_finish_jump:
         # pointer and serves as our starting stack pointer.
 
         # TODO: FIXME your code here
+        csrrw sscratch, a0      # set sscratch to the pointer to anchor, which is the kernel stack pointer
+        mv sp, a1               # set sp to 0xD000,0000
+        csrrw sepc, a2          # put upc into sepc
+        sret                    # return to user mode
 
 
 # Statically allocated stack for the idle thread.

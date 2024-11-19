@@ -170,6 +170,7 @@ _trap_entry_from_umode:
 
 
         # TODO: FIXME your code here
+        csrrw sp, sscratch, sp
 
         addi    sp, sp, -34*8      # allocate space for trap frame
         sd      t6, 31*8(sp)         # save t6 (x31) in trap frame
