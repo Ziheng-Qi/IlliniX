@@ -1,12 +1,13 @@
 #include "scnum.h"
 
+
         .text
 
         .global _exit
         .type   _exit, @function
 _exit:
         li      a7, SYSCALL_EXIT
-        ecall
+        ecall   
         ret
 
         .global _msgout
@@ -62,7 +63,7 @@ _ioctl:
         .type   _exec, @function
 _exec:
         li      a7, SYSCALL_EXEC
-        ecall
+        ecall   
         ret
 
         .end

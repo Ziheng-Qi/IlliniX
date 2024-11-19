@@ -101,4 +101,5 @@ void * krealloc(void * ptr, size_t size) {
 void kfree(void * ptr) {
     trace("%s(%p)", __func__, ptr);
     // do nothing
+
 }
