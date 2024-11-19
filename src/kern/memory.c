@@ -108,10 +108,13 @@ static inline void sfence_vma(void);
 
 static union linked_page * free_list;
 
+// Root page table: each PTE maps 1GB
 static struct pte main_pt2[PTE_CNT]
     __attribute__ ((section(".bss.pagetable"), aligned(4096)));
+// Level1 PT for 1GB: each PTE maps 2MB
 static struct pte main_pt1_0x80000[PTE_CNT]
     __attribute__ ((section(".bss.pagetable"), aligned(4096)));
+// Level0(leaf) PT for 2MB: each PTE maps 4kB
 static struct pte main_pt0_0x80000[PTE_CNT]
     __attribute__ ((section(".bss.pagetable"), aligned(4096)));
 
@@ -161,7 +164,7 @@ void memory_init(void) {
     // Identity mapping of two gigabytes (as two gigapage mappings)
     for (pma = 0; pma < RAM_START_PMA; pma += GIGA_SIZE)
         main_pt2[VPN2(pma)] = leaf_pte((void*)pma, PTE_R | PTE_W | PTE_G);
-    
+     
     // Third gigarange has a second-level page table
     main_pt2[VPN2(RAM_START_PMA)] = ptab_pte(main_pt1_0x80000, PTE_G);
 
@@ -227,12 +230,14 @@ void memory_init(void) {
     page_cnt = (RAM_END - heap_end) / PAGE_SIZE;
 
     kprintf("Page allocator: [%p,%p): %lu pages free\n",
-        free_list, RAM_END, page_cnt);
+        free_list, RAM_END, page_cnt); 
 
     // Put free pages on the free page list
     // TODO: FIXME implement this (must work with your implementation of
     // memory_alloc_page and memory_free_page).
-    
+    for (void* free_page = heap_end; free_page < RAM_END; free_page += PAGE_SIZE) {
+        memory_free_page(free_page);
+    }
     // Allow supervisor to access user memory. We could be more precise by only
     // enabling it when we are accessing user memory, and disable it at other
     // times to catch bugs.
@@ -241,6 +246,199 @@ void memory_init(void) {
 
     memory_initialized = 1;
 }
+
+// This function takes a pointer to your active root page table and a virtual memory address. 
+// It walks down the page table structure using the VPN fields of vma, and if create is non-zero, 
+// it will create the appropriate page tables to walk to the leaf page table (”level 0”). 
+// It returns a pointer to the page table entry that represents the 4 kB page containing vma. 
+// This function will only walk to a 4 kB page, not a megapage or gigapage.
+struct pte* walk_pt(struct pte* root, uintptr_t vma, int create) {
+    // walk down every level and create table if table not exist
+    uintptr_t pt1_ppn = root[VPN2(vma)].ppn;
+    uintptr_t pt1_pma = pagenum_to_pageptr(pt1_ppn); 
+    struct pte* pt1 = (struct pte*) pt1_pma;
+    if (create != 0 && !(root[VPN2(vma)].flags & PTE_V)) {
+        void* allocated_page = memory_alloc_page();
+        root[VPN2(vma)] = ptab_pte((struct pte*)allocated_page, PTE_G);
+        pt1 = allocated_page;
+    }
+
+    uintptr_t pt0_ppn = pt1[VPN1(vma)].ppn;
+    uintptr_t pt0_pma = pagenum_to_pageptr(pt0_ppn); 
+    struct pte* pt0 = (struct pte*) pt0_pma;
+    if (create != 0 && !(pt1[VPN1(vma)].flags & PTE_V)) {
+        void* allocated_page = memory_alloc_page();
+        pt1[VPN1(vma)] = ptab_pte((struct pte*)allocated_page, PTE_G);
+        pt0 = allocated_page;
+    }
+
+    uintptr_t ppn = pt0[VPN0(vma)].ppn;
+    uintptr_t pma = (ppn << 12) | (vma & 0xFFF);
+    if (create != 0 && !(pt0[VPN0(vma)].flags & PTE_V)) {
+        void* allocated_page = memory_alloc_page();
+        pt0[VPN0(vma)] = leaf_pte((struct pte*)allocated_page, PTE_G | PTE_W |PTE_R);
+    }
+    return &pt0[VPN0(vma)];
+}
+
+// Switches the active memory space to the main memory space and reclaims the
+// memory space that was active on entry. All physical pages mapped by the memory space 
+// that are not part of the global mapping are reclaimed.
+// Question: what is reclaim? Are we recalling all the previously active space?
+void memory_space_reclaim(void) {
+    uintptr_t old_mtag = memory_space_switch(main_mtag);
+    struct pte* pt2 = mtag_to_root(old_mtag);
+    for (int vpn2 = 0; vpn2 < PTE_CNT; vpn2++) {
+        if (!(pt2[vpn2].flags & PTE_V) || !(pt2[vpn2].flags & PTE_U) || pt2[vpn2].flags & PTE_G) 
+            continue;
+        struct pte* pt1 = (struct pte*) pagenum_to_pageptr(pt2[vpn2].ppn);
+        for (int vpn1 = 0; vpn1 < PTE_CNT; vpn1++) {
+            if (!(pt1[vpn1].flags & PTE_V) || !(pt1[vpn1].flags & PTE_U) || pt1[vpn1].flags & PTE_G)
+                continue;
+            struct pte* pt0 = (struct pte*) pagenum_to_pageptr(pt1[vpn1].ppn);
+            for (int vpn0 = 0; vpn0 < PTE_CNT; vpn0++) {
+                if (!(pt0[vpn0].flags & PTE_V) || !(pt0[vpn0].flags & PTE_U) || pt0[vpn0].flags & PTE_G)
+                    continue;
+                memory_free_page(pagenum_to_pageptr(pt0[vpn0].ppn));
+            }
+            memory_free_page(pt0);
+        }
+        memory_free_page(pt1);
+    }
+    memory_free_page(pt2);
+    sfence_vma();
+}
+
+// Allocates a physical page from the free physical page pool and returns a pointer
+// to the direct-mapped addr of the page. Return value in [RAM_START, RAM_END],
+// so VMA = PMA. Panics if there are no free pages available.
+void * memory_alloc_page(void) {
+    if (free_list == NULL)
+        panic("No free pages available!");
+    union linked_page * allocated_page = free_list;
+    free_list = free_list->next;
+    allocated_page->next = NULL;
+    if (allocated_page > RAM_END || allocated_page < RAM_START)
+        panic("Invalid physical page!");
+    return allocated_page;
+}
+
+// Returns a previously allocated physical page to the free page pool.
+void memory_free_page(void * pp) {
+    // insert the page to the head
+    if (pp == NULL)
+        panic("Invalid allocated physical page!");
+    // union linked_page* cur_page = free_list;
+    ((union linked_page* )pp)->next = free_list;
+    free_list = pp;
+}
+
+// Allocates and maps a physical page.
+// Maps a virtual page to a physical page in the current memory space. The /vma/
+// argument gives the virtual address of the page to map. The /pp/ argument is a
+// pointer to the physical page to map. The /rwxug_flags/ argument is an OR of
+// the PTE flags, of which only a combination of R, W, X, U, and G should be
+// specified. (The D, A, and V flags are always added by memory_map_page.) The
+// function returns a pointer to the mapped virtual page, i.e., (void*)vma.
+// Does not fail; panics if the request cannot be satsified.
+void * memory_alloc_and_map_page (
+    uintptr_t vma, uint_fast8_t rwxug_flags) {
+        void* page = memory_alloc_page();
+        struct pte* pte = walk_pt(active_space_root(), vma, 1);
+        pte->flags = pte->flags | PTE_D | PTE_A | PTE_V;
+        return vma;
+    }
+
+// Allocates and maps multiple physical pages in an address range. Equivalent to
+// calling memory_alloc_and_map_page for every page in the range. Returns the mapped
+// virtual memory address.
+void * memory_alloc_and_map_range (
+    uintptr_t vma, size_t size, uint_fast8_t rwxug_flags) {
+        for (uintptr_t vma = vma; vma < vma + size; vma += PAGE_SIZE) {
+            struct pte* pte = walk_pt(active_space_root(), vma, 1);
+            if (pte == NULL | !pte->flags | PTE_V)
+                continue;
+            void* allocated_page = memory_alloc_and_map_page(vma, PTE_V);
+        }   
+    }
+
+// Unmaps and frees all pages with the U flag asserted.
+void memory_unmap_and_free_user(void) {
+    struct pte* pt2 = active_space_root();
+    for (int vpn2 = 0; vpn2 < PTE_CNT; vpn2++) {
+        if ((!pt2[vpn2].flags & PTE_V) || !(pt2[vpn2].flags & PTE_U)) 
+            continue;
+        struct pte* pt1 = (struct pte*) pagenum_to_pageptr(pt2[vpn2].ppn);
+        for (int vpn1 = 0; vpn1 < PTE_CNT; vpn1++) {
+            if ((!pt1[vpn1].flags & PTE_V) || !(pt1[vpn1].flags & PTE_U))
+                continue;
+            struct pte* pt0 = (struct pte*) pagenum_to_pageptr(pt1[vpn1].ppn);
+            for (int vpn0 = 0; vpn0 < PTE_CNT; vpn0++) {
+                if ((!pt0[vpn0].flags & PTE_V) || !(pt0[vpn0].flags & PTE_U))
+                    continue;
+                memory_free_page(pagenum_to_pageptr(pt0[vpn0].ppn));
+                // struct pte(pt0[vpn0]) = null_pte;
+            }
+            memory_free_page(pt0);
+        }
+        memory_free_page(pt1);
+    }
+    memory_free_page(pt2);
+    sfence_vma();
+}
+
+// Sets the flags of the PTE associated with vp. Only works with 4 kB pages.
+void memory_set_page_flags(const void *vp, uint8_t rwxug_flags) {
+    
+}
+
+
+// Changes the PTE flags for all pages in a mapped range.
+void memory_set_range_flags (
+const void * vp, size_t size, uint_fast8_t rwxug_flags) {
+    for (uintptr_t vma = vp; vma < vp + size; vma += PAGE_SIZE) {
+        // use create = 0 because we are changing flags of existing pages, not
+        // allocating new ones
+        struct pte* pte = walk_pt(active_space_root(), vma, 0);
+        if (pte == NULL | !pte->flags | PTE_V)
+            continue;
+        pte->flags = pte->flags | rwxug_flags;
+    }
+}
+
+
+// Checks if a virtual address range is mapped with specified flags. Returns 1
+// if and only if every virtual page containing the specified virtual address
+// range is mapped with the at least the specified flags.
+int memory_validate_vptr_len (
+    const void * vp, size_t len, uint_fast8_t rwxug_flags) {
+        return 0;
+    }
+
+// Checks if the virtual pointer points to a mapped range containing a
+// null-terminated string. Returns 1 if and only if the virtual pointer points
+// to a mapped readable page with the specified flags, and every byte starting
+// at /vs/ up until the terminating null byte is also mapped with the same
+// permissions.
+int memory_validate_vstr (
+    const char * vs, uint_fast8_t ug_flags) {
+        return 0;
+    }
+
+// Called from excp.c to handle a page fault at the specified virtual address. Either
+// maps a page containing the faulting address, or calls process_exit, depending on if the address 
+// is within the user region. Must call this func when a store page fault is triggered by a user program.
+void memory_handle_page_fault(const void * vptr) {
+    if (vptr < USER_START_VMA || vptr > USER_END_VMA) {
+        kprintf("Address outside the user region");
+        process_exit();
+    }
+    struct pte* page = walk_pt(active_space_root(), vptr, 1);
+    if (page == NULL)
+        panic("Invalid allocated page!");
+    sfence_vma();
+}
+
 
 // INTERNAL FUNCTION DEFINITIONS
 //
