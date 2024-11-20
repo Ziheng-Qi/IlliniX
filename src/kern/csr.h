@@ -219,8 +219,8 @@ static inline void csrc_sip(intptr_t mask) {
 
 #define RISCV_MSTATUS_SIE (1UL << 1)
 #define RISCV_MSTATUS_MIE (1UL << 3)
-#define RISCV_MSTATUS_SPIE (1UL << 3)
-#define RISCV_MSTATUS_MPIE (1UL << 3)
+#define RISCV_MSTATUS_SPIE (1UL << 5)
+#define RISCV_MSTATUS_MPIE (1UL << 7)
 #define RISCV_MSTATUS_SPP (1UL << 8)
 #define RISCV_MSTATUS_MPP_shift 11
 #define RISCV_MSTATUS_MPP_nbits 2
@@ -244,7 +244,7 @@ static inline void csrc_mstatus(intptr_t mask) {
 // sstatus
 
 #define RISCV_SSTATUS_SIE (1UL << 1)
-#define RISCV_SSTATUS_SPIE (1UL << 3)
+#define RISCV_SSTATUS_SPIE (1UL << 5)
 #define RISCV_SSTATUS_SPP (1UL << 8)
 #define RISCV_SSTATUS_SUM (1UL << 18)
 
