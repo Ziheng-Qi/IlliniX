@@ -14,6 +14,7 @@
 #include "intr.h"
 #include "process.h"
 #include "memory.h"
+#include "trap.h"
 
 // COMPILE-TIME PARAMETERS
 //
@@ -251,6 +252,10 @@ void thread_exit(void) {
 }
 
 void thread_jump_to_user(uintptr_t usp, uintptr_t upc) {
+    intr_disable(); // disable interrupt because we are in smode but we set stvec to umode entry point
+    csrw_stvec(_trap_entry_from_umode); // set stvec to umode entry point so it know sp is not in kernel stack
+    csrc_sstatus(RISCV_SSTATUS_SPP); // so that sret returns to user mode
+    csrs_sstatus(RISCV_SSTATUS_SPIE); // enable supervisor mode interrupt so that user process can trigger int
     _thread_finish_jump(CURTHR->stack_base, usp, upc);
 }
 

@@ -66,25 +66,21 @@ extern char memory_initialized;
 // address space and RAM as the main memory space. This function never fails; if
 // there are not enough physical memory pages to create the new memory space, it
 // panics.
-
 extern uintptr_t memory_space_create(uint_fast16_t asid);
 
 // void memory_space_reclaim(uintptr_t mtag)
 // Switches the active memory space to the main memory space and reclaims the
 // memory space that was active on entry. All physical pages mapped by a user
 // mapping are reclaimed.
-
 extern void memory_space_reclaim(void);
 
 // uintptr_t active_memory_space(void)
 // Returns the memory space tag of the current memory space.
-
 static inline uintptr_t active_memory_space(void);
 
 // uintptr_t memory_space_switch(uintptr_t mtag)
 // Switches to another memory space and returns the memory space tag of the
 // previously active memory space.
-
 static inline uintptr_t memory_space_switch(uintptr_t mtag);
 
 // void * memory_alloc_page(void)
