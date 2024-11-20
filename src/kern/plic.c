@@ -154,7 +154,7 @@ void plic_enable_source_for_context(uint32_t ctxno, uint32_t srcno) {
         return;
     }
 
-    if (ctxno < 0||ctxno >= PLIC_CTXCNT) {
+    if (ctxno < 0||ctxno > PLIC_CTXCNT) {
         return;
     }
 
@@ -188,7 +188,7 @@ void plic_disable_source_for_context(uint32_t ctxno, uint32_t srcno) {
         return;
     }
 
-    if (ctxno < 0||ctxno >= PLIC_CTXCNT) {
+    if (ctxno < 0||ctxno > PLIC_CTXCNT) {
         return;
     }
 
@@ -219,7 +219,7 @@ void plic_disable_source_for_context(uint32_t ctxno, uint32_t srcno) {
 void plic_set_context_threshold(uint32_t ctxno, uint32_t level) {
     // FIXME your code goes here
 
-    if (ctxno < 0||ctxno >= PLIC_CTXCNT) {
+    if (ctxno < 0||ctxno > PLIC_CTXCNT) {
         return;
     }
     if (level < PLIC_PRIO_MIN || level > PLIC_PRIO_MAX) {
@@ -245,7 +245,7 @@ void plic_set_context_threshold(uint32_t ctxno, uint32_t level) {
 uint32_t plic_claim_context_interrupt(uint32_t ctxno) {
     // FIXME your code goes here
 
-    if (ctxno < 0||ctxno >= PLIC_CTXCNT) {
+    if (ctxno < 0||ctxno > PLIC_CTXCNT) {
         return 0;
     }
 
@@ -270,7 +270,7 @@ uint32_t plic_claim_context_interrupt(uint32_t ctxno) {
 void plic_complete_context_interrupt(uint32_t ctxno, uint32_t srcno) {
       // FIXME your code goes here
 
-    if (ctxno < 0||ctxno >= PLIC_CTXCNT) {
+    if (ctxno < 0||ctxno > PLIC_CTXCNT) {
         return;
     }
 
