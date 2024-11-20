@@ -274,10 +274,10 @@ struct pte* walk_pt(struct pte* root, uintptr_t vma, int create) {
 
     uintptr_t ppn = pt0[VPN0(vma)].ppn;
     uintptr_t pma = (ppn << 12) | (vma & 0xFFF);
-    if (create != 0 && !(pt0[VPN0(vma)].flags & PTE_V)) {
-        void* allocated_page = memory_alloc_page();
-        pt0[VPN0(vma)] = leaf_pte((struct pte*)allocated_page, PTE_G | PTE_W |PTE_R);
-    }
+    // if (create != 0 && !(pt0[VPN0(vma)].flags & PTE_V)) {
+    //     void* allocated_page = memory_alloc_page();
+    //     pt0[VPN0(vma)] = leaf_pte((struct pte*)allocated_page, PTE_G | PTE_W |PTE_R);
+    // }
     return &pt0[VPN0(vma)];
 }
 
@@ -287,6 +287,9 @@ struct pte* walk_pt(struct pte* root, uintptr_t vma, int create) {
 // Question: what is reclaim? Are we recalling all the previously active space?
 void memory_space_reclaim(void) {
     uintptr_t old_mtag = memory_space_switch(main_mtag);
+    if (old_mtag == main_mtag)
+        panic("try to reclaim main space\r\n");
+    
     struct pte* pt2 = mtag_to_root(old_mtag);
     for (int vpn2 = 0; vpn2 < PTE_CNT; vpn2++) {
         if (!(pt2[vpn2].flags & PTE_V) || !(pt2[vpn2].flags & PTE_U) || pt2[vpn2].flags & PTE_G) 
@@ -301,8 +304,12 @@ void memory_space_reclaim(void) {
                     continue;
                 memory_free_page(pagenum_to_pageptr(pt0[vpn0].ppn));
             }
+            if (pt1[vpn1].flags & PTE_G)
+                continue;
             memory_free_page(pt0);
         }
+        if (pt2[vpn2].flags & PTE_G)
+            continue;
         memory_free_page(pt1);
     }
     memory_free_page(pt2);
@@ -343,9 +350,17 @@ void memory_free_page(void * pp) {
 // Does not fail; panics if the request cannot be satsified.
 void * memory_alloc_and_map_page (
     uintptr_t vma, uint_fast8_t rwxug_flags) {
+        // allocate new physical page
         void* page = memory_alloc_page();
+        if (page == NULL)
+            panic("Failed to allocate new physical page!");
+        // get pte of vma
         struct pte* pte = walk_pt(active_space_root(), vma, 1);
-        pte->flags = pte->flags | PTE_D | PTE_A | PTE_V;
+        if (pte == NULL)
+            panic("Failed to allocate page table entry");
+        // map the vma to the physical page
+        pte->ppn = pageptr_to_pagenum(page);
+        pte->flags = rwxug_flags | PTE_D | PTE_A | PTE_V;
         return vma;
     }
 
@@ -354,12 +369,15 @@ void * memory_alloc_and_map_page (
 // virtual memory address.
 void * memory_alloc_and_map_range (
     uintptr_t vma, size_t size, uint_fast8_t rwxug_flags) {
-        for (uintptr_t vma = vma; vma < vma + size; vma += PAGE_SIZE) {
-            struct pte* pte = walk_pt(active_space_root(), vma, 1);
-            if (pte == NULL | !pte->flags | PTE_V)
-                continue;
-            void* allocated_page = memory_alloc_and_map_page(vma, PTE_V);
+        for (uintptr_t addr = round_up_addr(vma, PAGE_SIZE); addr < round_up_size(addr + size, PAGE_SIZE); addr += PAGE_SIZE) {
+            // struct pte* pte = walk_pt(active_space_root(), addr, 1);
+            // if (pte == NULL || !(pte->flags | PTE_V))
+            //     continue;
+            void* addr = memory_alloc_and_map_page(addr, PTE_V);
+            if (addr == NULL)
+                kprintf("Allocation failed!");
         }   
+        return vma;
     }
 
 // Unmaps and frees all pages with the U flag asserted.
@@ -377,10 +395,13 @@ void memory_unmap_and_free_user(void) {
                 if ((!pt0[vpn0].flags & PTE_V) || !(pt0[vpn0].flags & PTE_U))
                     continue;
                 memory_free_page(pagenum_to_pageptr(pt0[vpn0].ppn));
-                // struct pte(pt0[vpn0]) = null_pte;
             }
+            if (pt1[vpn1].flags & PTE_U)
+                continue;
             memory_free_page(pt0);
         }
+        if (pt2[vpn2].flags & PTE_U)
+            continue;
         memory_free_page(pt1);
     }
     memory_free_page(pt2);
@@ -389,7 +410,8 @@ void memory_unmap_and_free_user(void) {
 
 // Sets the flags of the PTE associated with vp. Only works with 4 kB pages.
 void memory_set_page_flags(const void *vp, uint8_t rwxug_flags) {
-    
+    struct pte* pte = walk_pt(active_space_root(), vp, 0);
+    pte->flags |= rwxug_flags;
 }
 
 
@@ -397,12 +419,10 @@ void memory_set_page_flags(const void *vp, uint8_t rwxug_flags) {
 void memory_set_range_flags (
 const void * vp, size_t size, uint_fast8_t rwxug_flags) {
     for (uintptr_t vma = vp; vma < vp + size; vma += PAGE_SIZE) {
-        // use create = 0 because we are changing flags of existing pages, not
-        // allocating new ones
         struct pte* pte = walk_pt(active_space_root(), vma, 0);
         if (pte == NULL | !pte->flags | PTE_V)
             continue;
-        pte->flags = pte->flags | rwxug_flags;
+        pte->flags |= rwxug_flags;
     }
 }
 
@@ -433,8 +453,8 @@ void memory_handle_page_fault(const void * vptr) {
         kprintf("Address outside the user region");
         process_exit();
     }
-    struct pte* page = walk_pt(active_space_root(), vptr, 1);
-    if (page == NULL)
+    struct pte* pte = walk_pt(active_space_root(), vptr, 1);
+    if (pte == NULL)
         panic("Invalid allocated page!");
     sfence_vma();
 }
