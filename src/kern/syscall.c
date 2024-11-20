@@ -174,10 +174,18 @@ static int sysexec(int fd)
   {
     return -EBADFD;
   }
-  // exit the current process
-  process_terminate(proc->id);
-  // execute the new process
-  return process_exec(proc->iotab[fd]);
+  uintptr_t entry = 0;
+
+  int result = elf_load(proc->iotab[fd], &entry);
+
+  if (result < 0)
+  {
+    return result;
+  }
+
+  asm volatile("call %0" ::"r"(entry));
+
+  return result;
 }
 
 void syscall_handler(struct trap_frame *tfr)
