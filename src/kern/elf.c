@@ -13,7 +13,6 @@
  */
 
 int elf_load(struct io_intf *io, void (**entryptr)(void)) {
-    // TODO: Add virtual memory mappings
     Elf64_Ehdr elf_hdr;
     int result = ioread(io, &elf_hdr, sizeof(elf_hdr));
     // read error
@@ -48,6 +47,8 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)) {
             if (prog_hdr.p_vaddr < USER_START_VMA || prog_hdr.p_vaddr + prog_hdr.p_filesz > USER_END_VMA)
                 return -EINVAL;
             ioseek(io, prog_hdr.p_offset);
+            struct pte* pte = walk_pt(active_space_root(), prog_hdr.p_vaddr, 1);
+            
             result = ioread(io, (void*) prog_hdr.p_vaddr, prog_hdr.p_filesz);
             if (result < 0)
                 return result;

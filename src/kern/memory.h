@@ -66,6 +66,9 @@ extern char memory_initialized;
 // address space and RAM as the main memory space. This function never fails; if
 // there are not enough physical memory pages to create the new memory space, it
 // panics.
+
+struct pte* walk_pt(struct pte* root, uintptr_t vma, int create);
+
 extern uintptr_t memory_space_create(uint_fast16_t asid);
 
 // void memory_space_reclaim(uintptr_t mtag)
@@ -159,6 +162,10 @@ extern void memory_handle_page_fault(const void * vptr);
 
 // INLINE FUNCTION DEFINITIONS
 //
+
+static inline uintptr_t active_space_mtag(void);
+static inline struct pte * mtag_to_root(uintptr_t mtag);
+static inline struct pte * active_space_root(void);
 
 static inline uintptr_t active_memory_space(void) {
     return csrr_satp();
