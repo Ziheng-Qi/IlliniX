@@ -71,7 +71,7 @@ int process_exec(struct io_intf *exeio){
     int result = elf_load(exeio, (void (**)(void)) & entry);
     if (result < 0){
         return result;
-    }  
+    }
     //4. The thread associated with the process needs to be started in user-mode.
     // An assembly function in thrasm.s would be useful here
     thread_jump_to_user(USER_STACK_VMA, entry);
