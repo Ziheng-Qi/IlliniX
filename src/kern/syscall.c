@@ -15,13 +15,8 @@
 static int sysexit(void)
 {
   // Exit the current process
-  int pid = current_pid();
-  if (pid == 0)
-  {
-    // If the process is the idle process, return an error
-    return -EBUSY;
-  }
-  process_terminate(pid);
+  process_exit();
+  kprintf("Code should not reach here.");
   return 0;
 }
 
