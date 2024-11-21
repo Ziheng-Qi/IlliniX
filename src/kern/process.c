@@ -68,8 +68,11 @@ int process_exec(struct io_intf *exeio){
     // 2. A fresh 2nd level (root) page table should be created and initialized with the default mappings for a user process
     // 3. The executable should be loaded from the IO interface provided as an argument into the mapped pages
     uintptr_t entry;
-    elf_load(exeio, &entry);
-    // 4. The thread associated with the process needs to be started in user-mode.
+    int result = elf_load(exeio, (void (**)(void)) & entry);
+    if (result < 0){
+        return result;
+    }
+    //4. The thread associated with the process needs to be started in user-mode.
     // An assembly function in thrasm.s would be useful here
     thread_jump_to_user(USER_STACK_VMA, entry);
     
@@ -89,7 +92,8 @@ void process_exit(void){
     memory_space_reclaim();
 
     // close all io interfaces
-    struct io_intf* iotab[] = current_process()->iotab;
+    struct process *proc = current_process();
+    struct io_intf **iotab = proc->iotab;
     for(int i = 0; i < PROCESS_IOMAX; i++){
         if(iotab[i] != NULL){
             struct io_intf* io = iotab[i];

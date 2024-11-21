@@ -22,6 +22,8 @@ CORE_OBJS = \
 	kfs.o \
 	ezheap.o \
 	io.o \
+	elf.o \
+	process.o \
 	device.o \
 	uart.o \
 	virtio.o \

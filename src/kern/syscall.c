@@ -7,6 +7,7 @@
 #include "process.h"
 #include "error.h"
 #include "fs.h"
+#include "memory.h"
 /*
  * syscall will be used for requesting actions from the kernel
  */
@@ -22,15 +23,15 @@ static int sysexit(void)
 
 static int sysmsgout(const char *msg)
 {
-  // Print the message to the console
-  if (console_initialized)
-  {
-    console_printf("%s", msg);
-  }
-  else
-  {
-    return -ENODEV;
-  }
+  int result;
+
+  trace("%s(msg=%p)\n", __func__, msg);
+  result = memory_validate_vstr(msg, PTE_U);
+  if (result != 0)
+    return result;
+  kprintf("Thread <%s:%d> says: %s\n",
+          thread_name(running_thread()),
+          running_thread(), msg);
   return 0;
 }
 
@@ -115,11 +116,13 @@ static int sysioctl(int fd, const int cmd, void *arg)
 
 static int sysdevopen(int fd, const char *name, int instno)
 {
-  struct io_intf *io = dev_open(name, instno);
-  if (io == NULL)
+  struct io_intf *io;
+  int result = device_open(&io, name, instno);
+  if (result < 0)
   {
-    return -ENODEV;
+    return result;
   }
+
   struct process *proc = current_process();
   if (proc == NULL)
   {
@@ -169,20 +172,37 @@ static int sysexec(int fd)
   {
     return -EBADFD;
   }
-  uintptr_t entry = 0;
+  uintptr_t entry;
 
-  int result = elf_load(proc->iotab[fd], &entry);
+  struct io_intf *io = proc->iotab[fd];
 
+  if (io == NULL)
+  {
+    return -EBADFD;
+  }
+
+  int result = process_exec(io);
   if (result < 0)
   {
     return result;
   }
 
-  asm volatile("call %0" ::"r"(entry));
-
-  return result;
+  return 0;
 }
 
+/*
+int sysfork(struct trap_frame *tfr)
+{
+  // Fork the current process
+  struct process *proc = current_process();
+  if (proc == NULL)
+  {
+    return -ENOENT;
+  }
+  struct process *new_proc = memory_fork(proc);
+
+}
+*/
 void syscall_handler(struct trap_frame *tfr)
 {
   // Get values within register a7 to determine which syscall to call
@@ -215,6 +235,11 @@ void syscall_handler(struct trap_frame *tfr)
   case SYSCALL_EXEC:
     tfr->x[TFR_A0] = sysexec((int)tfr->x[TFR_A0]);
     break;
+  /*
+  case SYSCALL_FORK:
+    tfr->x[TFR_A0] = sysfork(tfr);
+    break;
+  */
   default:
     break;
   }
