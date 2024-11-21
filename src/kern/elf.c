@@ -13,7 +13,7 @@
  * @return int 0 if elf_load success, negative value if error 
  */
 
-int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
+int elf_load(struct io_intf *io, void (**entryptr)(void)) {
     Elf64_Ehdr elf_hdr;
     int result = ioread(io, &elf_hdr, sizeof(elf_hdr));
     // read error
@@ -45,9 +45,11 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)) {
         // cp2: check if the vaddr already mapped, if not, alloc page to it.
         // also check if the filesize is a multiple of page size, so know how many pages to assign 
         if (prog_hdr.p_type == PT_LOAD) {
-            if (prog_hdr.p_vaddr < VALID_ADDR_LOW || prog_hdr.p_vaddr + prog_hdr.p_filesz > VALID_ADDR_HIGH)
+            if (prog_hdr.p_vaddr < USER_START_VMA || prog_hdr.p_vaddr + prog_hdr.p_filesz > USER_END_VMA)
                 return -EINVAL;
             ioseek(io, prog_hdr.p_offset);
+            struct pte* pte = walk_pt(active_space_root(), prog_hdr.p_vaddr, 1);
+            
             result = ioread(io, (void*) prog_hdr.p_vaddr, prog_hdr.p_filesz);
             if (result < 0)
                 return result;
