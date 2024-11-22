@@ -1,5 +1,3 @@
-# Based on xv6-riscv Makefile; see LICENSE.
-
 TOOLPREFIX=riscv64-unknown-elf-
 QEMU=qemu-system-riscv64
 
@@ -15,24 +13,41 @@ CORE_OBJS = \
 	string.o \
 	trapasm.o \
 	intr.o \
+	io.o \
+	device.o \
+	vioblk.o \
+	stdlib.o \
+	virtio.o \
+	console.o \
 	plic.o \
 	timer.o \
 	thread.o \
-	thrasm.o \
-	kfs.o \
-	ezheap.o \
-	io.o \
 	elf.o \
-	process.o \
-	device.o \
+	thrasm.o \
+	ezheap.o \
 	uart.o \
-	virtio.o \
-	vioblk.o \
+	kfs.o \
+	# Add the names of new objects here
+
+CORE_OBJS_NO_VIO = \
+	start.o \
+	halt.o \
+	string.o \
+	trapasm.o \
+	intr.o \
+	io.o \
+	device.o \
 	console.o \
-	excp.o \
-	memory.o \
-	syscall.o 
-	# Add more object files here
+	plic.o \
+	thrasm.o \
+	thread.o \
+	uart.o \
+	timer.o \
+	ezheap.o \
+	kfs.o \
+	elf.o \
+	test_elf.o \
+	# Add the names of new objects here
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += -mcmodel=medany -fno-pie -no-pie -march=rv64g -mabi=lp64d
@@ -46,33 +61,64 @@ QEMUOPTS += -serial mon:stdio
 QEMUOPTS += -drive file=kfs.raw,id=blk0,if=none,format=raw
 QEMUOPTS += -device virtio-blk-device,drive=blk0
 QEMUOPTS += -serial pty
-QEMUOPTS += -monitor pty
 
-# try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
 # QEMU's gdb stub command line changed in 0.11
 QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 
-all: kernel.elf
+all: shell.elf test_fs.elf vioblk.elf 
 
-kernel.elf: $(CORE_OBJS) main.o companion.o
+shell.elf: $(CORE_OBJS) main_shell.o companion.o
 	$(LD) -T kernel.ld -o $@ $^
 
-run-kernel: kernel.elf
+rubric_test.elf: $(CORE_OBJS) rubric_tests.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+	
+vioblk.elf: $(CORE_OBJS) main_test_vio.o
+	$(LD) -T kernel.ld -o $@ $^
+
+test_fs.elf: $(CORE_OBJS) main_tests.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+
+run-test_fs: test_fs.elf
 	$(QEMU) $(QEMUOPTS)
 
-debug-kernel: kernel.elf
+run-rubric_test: rubric_test.elf
+	$(QEMU) $(QEMUOPTS)
+
+debug-test_fs: test_fs.elf
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+
+run-shell: shell.elf
+	$(QEMU) $(QEMUOPTS)
+
+debug-shell: shell.elf
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+
+debug-vioblk: vioblk.elf
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+
+debug-rubric_test: rubric_test.elf
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+
+test_elf.elf: $(CORE_OBJS_NO_VIO) test_elf.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+
+run-test_elf: test_elf.elf
+	$(QEMU) $(QEMUOPTS)
+
+debug-test_elf: test_elf.elf
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+
+# You might want to add more here
 
 clean:
 	if [ -f companion.o ]; then cp companion.o companion.o.save; fi
 	rm -rf *.o *.elf *.asm
 	if [ -f companion.o.save ]; then mv companion.o.save companion.o; fi
 
-# This will load the trek file into your kernel memory, via kernel.ld
-# `mkcomp.sh`, as well as the documentation, contain discussion
 companion.o:
 	if [ -f ../user/trek ]; then sh ./mkcomp.sh ../user/trek; fi
 	if ! [ -f ../user/trek ]; then sh ./mkcomp.sh; fi

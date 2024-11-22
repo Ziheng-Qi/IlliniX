@@ -81,9 +81,7 @@ static inline int aligned_addr(uintptr_t vma, size_t blksz);
 static inline int aligned_ptr(const void * p, size_t blksz);
 static inline int aligned_size(size_t size, size_t blksz);
 
-static inline uintptr_t active_space_mtag(void);
-static inline struct pte * mtag_to_root(uintptr_t mtag);
-static inline struct pte * active_space_root(void);
+
 
 static inline void * pagenum_to_pageptr(uintptr_t n);
 static inline uintptr_t pageptr_to_pagenum(const void * p);
@@ -370,9 +368,6 @@ void * memory_alloc_and_map_page (
 void * memory_alloc_and_map_range (
     uintptr_t vma, size_t size, uint_fast8_t rwxug_flags) {
         for (uintptr_t addr = round_up_addr(vma, PAGE_SIZE); addr < round_up_size(addr + size, PAGE_SIZE); addr += PAGE_SIZE) {
-            // struct pte* pte = walk_pt(active_space_root(), addr, 1);
-            // if (pte == NULL || !(pte->flags | PTE_V))
-            //     continue;
             void* addr = memory_alloc_and_map_page(addr, PTE_V);
             if (addr == NULL)
                 kprintf("Allocation failed!");
@@ -404,7 +399,7 @@ void memory_unmap_and_free_user(void) {
             continue;
         memory_free_page(pt1);
     }
-    memory_free_page(pt2);
+    // memory_free_page(pt2);
     sfence_vma();
 }
 

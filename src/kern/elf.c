@@ -48,6 +48,9 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)) {
             if (prog_hdr.p_vaddr < USER_START_VMA || prog_hdr.p_vaddr + prog_hdr.p_filesz > USER_END_VMA)
                 return -EINVAL;
             ioseek(io, prog_hdr.p_offset);
+            struct pte *active_space_r = active_space_root();
+            struct pte *pte = walk_pt(active_space_r, prog_hdr.p_vaddr, 1);
+
             result = ioread(io, (void*) prog_hdr.p_vaddr, prog_hdr.p_filesz);
             if (result < 0)
                 return result;

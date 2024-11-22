@@ -6,6 +6,7 @@
 
 #include "io.h"
 #include "fs.h"
+#include "memory.h"
 #include "config.h"
 
 #define Elf64_Addr uint64_t
