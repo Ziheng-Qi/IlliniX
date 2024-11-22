@@ -385,7 +385,7 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
 
     for(int i = 0; i < VIOBLK_ATTEMPT_MAX; i++) {
         int next_idx = dev->vq.used.idx;
-        // intr_disable(); // we don't want interrupt to trigger before entering condition_wait
+        intr_disable(); // we don't want interrupt to trigger before entering condition_wait
         if(op_type == VIRTIO_BLK_T_IN){
             dev->vq.desc[2].flags |= VIRTQ_DESC_F_WRITE; // the data buffer is device-writable
         }else{
@@ -395,7 +395,7 @@ int vioblk_io_request(struct vioblk_device * const dev, uint64_t blk_no, uint32_
         virtio_notify_avail(dev->regs, 0);
         // kprintf("notifying the block device a read/write op.\n");
         condition_wait(&(dev->vq.used_updated)); //wait for a read/write to complete
-        // intr_enable();
+        intr_enable();
 
         // if there's a used buffer notification, then the idx will be updated by plus 1.
         assert(next_idx != dev->vq.used.idx);

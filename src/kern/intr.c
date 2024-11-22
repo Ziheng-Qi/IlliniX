@@ -95,7 +95,7 @@ void intr_handler(int code, struct trap_frame * tfr) {
     case RISCV_SCAUSE_INTR_EXCODE_SEI:
         extern_intr_handler();
         break;
-    case RISCV_MCAUSE_INTR_EXCODE_STI:
+    case RISCV_SCAUSE_INTR_EXCODE_STI:
         timer_intr_handler();
         break;
     default:
