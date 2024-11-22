@@ -79,9 +79,9 @@ int fs_open(const char *name, struct io_intf **io)
       // console_printf("Seeking to position: %d\n", position);
       uint64_t file_position = 0;
       ioseek(fs_io, position);
-      inode_t file_inode;
-      ioread_full(fs_io, &file_inode, BLOCK_SIZE);
-      uint64_t file_size = file_inode.byte_len;
+      inode_t* file_inode = kmalloc(BLOCK_SIZE);
+      ioread_full(fs_io, file_inode, BLOCK_SIZE);
+      uint64_t file_size =&file_inode->byte_len;
       uint64_t flag = INUSE;
       for (int j = 0; j < MAX_FILE_OPEN; j++)
       {
