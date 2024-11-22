@@ -77,17 +77,17 @@ void main(void) {
 
     result = fs_mount(blkio);
 
-    // debug("Mounted blk0");
+    debug("Mounted blk0");
 
-    // if (result != 0)
-    //     panic("fs_mount failed");
+    if (result != 0)
+        panic("fs_mount failed");
 
-    // result = fs_open(INIT_PROC, &initio);
+    result = fs_open(INIT_PROC, &initio);
 
-    // if (result < 0)
-    //     panic(INIT_PROC ": process image not found");
+    if (result < 0)
+        panic(INIT_PROC ": process image not found");
 
-    // result = process_exec(initio);
-    // // process_exec will never return here because it's in user stack, and its exit will call process_exit
-    // panic(INIT_PROC ": process_exec failed");
+    result = process_exec(initio);
+    // process_exec will never return here because it's in user stack, and its exit will call process_exit
+    panic(INIT_PROC ": process_exec failed");
 }
