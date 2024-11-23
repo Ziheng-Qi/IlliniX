@@ -1,11 +1,39 @@
 set auto-load local-gdbinit on
-add-auto-load-safe-path /
 
 set confirm off
 set architecture riscv:rv64
 target remote tcp::26000
 set disassemble-next-line auto
 set riscv use-compressed-breakpoints yes
-define setup-tcp
-    target remote tcp::26000
+define dis_rv
+    set $pc = $pc - 4
+    disassemble $pc
 end
+document dis_rv
+    Disassemble the instruction at the current program counter.
+end
+define si_rv
+    set $pc = $pc - 4
+    stepi
+    dis_rv
+end
+document si_rv
+    Step one instruction and disassemble it.
+end
+define ni_rv
+    set $pc = $pc - 4
+    nexti
+    dis_rv
+end
+document ni_rv
+    Step one instruction and disassemble it.
+end
+define si_n_rv
+    set $pc = $pc - 4
+    stepi $arg0
+    dis_rv
+end
+document si_n_rv
+    Step N instructions and disassemble the last one.
+end
+

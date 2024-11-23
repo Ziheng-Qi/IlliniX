@@ -87,6 +87,11 @@ typedef struct {
 // program_header -> p_type
 #define PT_LOAD 1
 
+// program_header -> p_flags
+#define PF_X 1
+#define PF_W 2
+#define PF_R 4
+
 // valid load address
 #define VALID_ADDR_LOW   0x80100000  
 #define VALID_ADDR_HIGH  0x81000000  

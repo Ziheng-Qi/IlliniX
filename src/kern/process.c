@@ -72,10 +72,11 @@ int process_exec(struct io_intf *exeio){
     if (result < 0){
         return result;
     }
-    //4. The thread associated with the process needs to be started in user-mode.
+
+    // //4. The thread associated with the process needs to be started in user-mode.
     // An assembly function in thrasm.s would be useful here
     thread_jump_to_user(USER_STACK_VMA, entry);
-    
+
     // ((void (*)())entry)();  equivalent to this but in user mode
 }
 

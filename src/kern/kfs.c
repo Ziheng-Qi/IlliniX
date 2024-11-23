@@ -377,6 +377,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
           }
         }
         // Copy data from the data block to the buffer
+        // kprintf("%s on line %d storing byte at address: %x\n", __FILE__, __LINE__, &((char *)buf)[bytes_read]);
 
         ((char *)buf)[bytes_read] = data_block->data[read_bytes];
         // console_putchar(data_block.data[read_bytes]);

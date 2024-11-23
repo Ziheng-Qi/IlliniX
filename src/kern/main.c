@@ -65,16 +65,6 @@ void main(void) {
     if (result != 0)
         panic("device_open failed");
 
-    uintptr_t vma = 0xc1000000;
-
-    vma = memory_alloc_and_map_page(vma, PTE_R | PTE_W | PTE_U);
-
-    // struct pte *pte = walk_pt(active_space_root(), vma, 1);
-
-    // uint64_t pma = (pte->ppn) << 12;
-
-    // kprintf("vma: %x, pma: %x\n", vma, pma);
-
     result = fs_mount(blkio);
 
     debug("Mounted blk0");
@@ -83,7 +73,7 @@ void main(void) {
         panic("fs_mount failed");
 
     result = fs_open(INIT_PROC, &initio);
-
+    // while (1);
     if (result < 0)
         panic(INIT_PROC ": process image not found");
 

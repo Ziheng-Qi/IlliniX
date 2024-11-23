@@ -41,6 +41,16 @@
 
 #define PTE_CNT (PAGE_SIZE/8) // number of PTEs per page table
 
+// STRUCTURE DEFINITIONS
+struct pte {
+    uint64_t flags:8;
+    uint64_t rsw:2;
+    uint64_t ppn:44;
+    uint64_t reserved:7;
+    uint64_t pbmt:2;
+    uint64_t n:1;
+};
+
 // EXPORTED TYPE DEFINITIONS
 //
 
@@ -163,9 +173,19 @@ extern void memory_handle_page_fault(const void * vptr);
 // INLINE FUNCTION DEFINITIONS
 //
 
-static inline uintptr_t active_space_mtag(void);
-static inline struct pte * mtag_to_root(uintptr_t mtag);
-static inline struct pte * active_space_root(void);
+
+static inline uintptr_t active_space_mtag(void) {
+    return csrr_satp();
+}
+
+static inline struct pte * mtag_to_root(uintptr_t mtag) {
+    return (struct pte *)((mtag << 20) >> 8);
+}
+
+
+static inline struct pte * active_space_root(void) {
+    return mtag_to_root(active_space_mtag());
+}
 
 static inline uintptr_t active_memory_space(void) {
     return csrr_satp();
