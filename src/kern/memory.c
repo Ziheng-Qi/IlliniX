@@ -479,9 +479,7 @@ void memory_handle_page_fault(const void *vptr)
         kprintf("Address outside the user region");
         process_exit();
     }
-    struct pte *pte = walk_pt(active_space_root(), vptr, 1);
-    if (pte == NULL)
-        panic("Invalid allocated page!");
+    memory_alloc_and_map_page(vptr, PTE_R | PTE_W | PTE_U);
     sfence_vma();
 }
 
