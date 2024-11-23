@@ -88,9 +88,11 @@ int process_exec(struct io_intf *exeio){
 //  • Associated kernel thread
 void process_exit(void){
 
-    
+     
     // reclaim memory space
-    memory_space_reclaim();
+    if(running_thread() == main_proc.tid){
+        memory_space_reclaim();
+    }
 
     // close all io interfaces
     struct process *proc = current_process();

@@ -192,9 +192,6 @@ _trap_entry_from_umode:
         ld      sp, 2*8(sp)
 
         csrrw   sp, sscratch, sp 
-        csrr    t0, sepc
-        addi    t0, t0, 4
-        csrw    sepc, t0
 
         sret
         # Execution of trap entry continues here. Jump to handlers.

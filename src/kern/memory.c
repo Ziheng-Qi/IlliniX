@@ -476,7 +476,7 @@ void memory_handle_page_fault(const void *vptr)
 {
     if (vptr < USER_START_VMA || vptr > USER_END_VMA)
     {
-        kprintf("Address outside the user region");
+        kprintf("Address outside the user region\n");
         process_exit();
     }
     memory_alloc_and_map_page(vptr, PTE_R | PTE_W | PTE_U);

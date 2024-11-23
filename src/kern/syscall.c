@@ -206,6 +206,7 @@ int sysfork(struct trap_frame *tfr)
 void syscall_handler(struct trap_frame *tfr)
 {
   // Get values within register a7 to determine which syscall to call
+  tfr->sepc += 4;
   switch (tfr->x[TFR_A7])
   {
   case SYSCALL_EXIT:
