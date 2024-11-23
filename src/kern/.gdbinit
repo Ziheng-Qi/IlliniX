@@ -39,3 +39,5 @@ end
 define reconnect_tcp
     target remote tcp::26000
 end
+
+add-symbol-file ../user/bin/init0 0x00000000C0000000
