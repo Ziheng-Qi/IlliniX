@@ -17,6 +17,8 @@ static int sysexit(void)
 {
   // Exit the current process
   process_exit();
+  kprintf("Code should not reach here.");
+  return 0;
 }
 
 static int sysmsgout(const char *msg)

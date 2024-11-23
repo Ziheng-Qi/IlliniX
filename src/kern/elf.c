@@ -25,7 +25,6 @@ uint_fast8_t phdr_flag_to_pte_flag(uint_fast32_t phdr_flags)
  */
 
 int elf_load(struct io_intf *io, void (**entryptr)(void)) {
-    // TODO: Add virtual memory mappings
     Elf64_Ehdr elf_hdr;
     kprintf("Loading ELF file\n");
     int result = ioread(io, &elf_hdr, sizeof(elf_hdr));
