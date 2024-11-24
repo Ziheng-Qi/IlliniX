@@ -90,7 +90,7 @@ void process_exit(void){
 
      
     // reclaim memory space
-    if(running_thread() == main_proc.tid){
+    if(running_thread() != main_proc.tid){
         memory_space_reclaim();
     }
 
