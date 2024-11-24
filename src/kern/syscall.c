@@ -116,23 +116,24 @@ static int sysioctl(int fd, const int cmd, void *arg)
 
 static int sysdevopen(int fd, const char *name, int instno)
 {
-  struct io_intf *io;
-  int result = device_open(&io, name, instno);
+  struct process *proc = current_process();
+
+  if (proc == NULL)
+  {
+    return -ENOENT;
+  }
+
+  if (fd < 0 || fd >= MAX_FILE_OPEN)
+  {
+    return -EBADFD;
+  }
+
+  int result = device_open(&(proc->iotab[fd]), name, instno);
   if (result < 0)
   {
     return result;
   }
 
-  struct process *proc = current_process();
-  if (proc == NULL)
-  {
-    return -ENOENT;
-  }
-  if (fd < 0 || fd >= MAX_FILE_OPEN)
-  {
-    return -EBADFD;
-  }
-  proc->iotab[fd] = io;
   return 0;
 }
 

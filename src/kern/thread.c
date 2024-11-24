@@ -246,6 +246,7 @@ void thread_exit(void) {
     // Signal parent in case it is waiting for us to exit
 
     assert(CURTHR->parent != NULL);
+    struct condition *parent_cond = &CURTHR->parent->child_exit;
     condition_broadcast(&CURTHR->parent->child_exit);
 
     suspend_self(); // should not return

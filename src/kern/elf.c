@@ -26,9 +26,7 @@ uint_fast8_t phdr_flag_to_pte_flag(uint_fast32_t phdr_flags)
 
 int elf_load(struct io_intf *io, void (**entryptr)(void)) {
     Elf64_Ehdr elf_hdr;
-    kprintf("Loading ELF file\n");
     int result = ioread(io, &elf_hdr, sizeof(elf_hdr));
-    kprintf("Elf header read\n");
     // read error
     if (result < 0)
         return result;
@@ -50,7 +48,6 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)) {
         result = ioseek(io, pos);
         if (result < 0)
             return result;
-        kprintf("Reading No.%d program header\n", i);
         result = ioread(io, &prog_hdr, elf_hdr.e_phentsize);
         if (result < 0)
             return result;
@@ -72,8 +69,6 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)) {
             uint_fast8_t pte_flags = phdr_flag_to_pte_flag(prog_hdr.p_flags) | PTE_U;
             uintptr_t vaddr = prog_hdr.p_vaddr;
             vaddr = memory_alloc_and_map_range(vaddr, prog_hdr.p_filesz, PTE_R | PTE_W | PTE_U);
-            kprintf("size: %x\n", prog_hdr.p_filesz);
-            // kprintf("Mapped vaddr: %x\n", vaddr);
             result = ioread(io, vaddr, prog_hdr.p_filesz);
             memory_set_range_flags(vaddr, prog_hdr.p_filesz, pte_flags);
             if (result < 0)
@@ -82,6 +77,5 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)) {
     }
     // set entry point
     *entryptr = (void(*)(void)) elf_hdr.e_entry;
-    // console_printf("Entryptr: %x\n", *entryptr);
     return 0;
 }

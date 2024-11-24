@@ -284,35 +284,52 @@ struct pte *walk_pt(struct pte *root, uintptr_t vma, int create)
 void memory_space_reclaim(void)
 {
     uintptr_t old_mtag = memory_space_switch(main_mtag);
-    if (old_mtag == main_mtag)
-        panic("try to reclaim main space\r\n");
 
-    struct pte *pt2 = mtag_to_root(old_mtag);
+    union linked_page *page = free_list;
+
+    struct pte *pt2 = pagenum_to_pageptr(old_mtag);
     for (int vpn2 = 0; vpn2 < PTE_CNT; vpn2++)
     {
-        if (!(pt2[vpn2].flags & PTE_V) || !(pt2[vpn2].flags & PTE_U) || pt2[vpn2].flags & PTE_G)
+        if (!(pt2[vpn2].flags & PTE_V) || !(pt2[vpn2].flags & PTE_X) || !(pt2[vpn2].flags & PTE_R) || !(pt2[vpn2].flags & PTE_W) || pt2[vpn2].flags & PTE_G)
             continue;
         struct pte *pt1 = (struct pte *)pagenum_to_pageptr(pt2[vpn2].ppn);
         for (int vpn1 = 0; vpn1 < PTE_CNT; vpn1++)
         {
-            if (!(pt1[vpn1].flags & PTE_V) || !(pt1[vpn1].flags & PTE_U) || pt1[vpn1].flags & PTE_G)
+            if (!(pt1[vpn1].flags & PTE_V) || !(pt1[vpn1].flags & PTE_X) || !(pt1[vpn1].flags & PTE_R) || !(pt1[vpn1].flags & PTE_W) || pt1[vpn1].flags & PTE_G)
                 continue;
             struct pte *pt0 = (struct pte *)pagenum_to_pageptr(pt1[vpn1].ppn);
             for (int vpn0 = 0; vpn0 < PTE_CNT; vpn0++)
             {
-                if (!(pt0[vpn0].flags & PTE_V) || !(pt0[vpn0].flags & PTE_U) || pt0[vpn0].flags & PTE_G)
-                    continue;
-                memory_free_page(pagenum_to_pageptr(pt0[vpn0].ppn));
+                if ((pt0[vpn0].flags & PTE_V))
+                {
+                    if (!(pt0[vpn0].flags & PTE_G))
+                    {
+                        if (page == NULL)
+                        {
+                            page = pagenum_to_pageptr(pt0[vpn0].ppn);
+                            free_list = page;
+                        }
+                        else
+                        {
+                            page->next = pagenum_to_pageptr(pt0[vpn0].ppn);
+                            page = page->next;
+                        }
+                        pt0[vpn0].ppn &= 0;
+                        pt0[vpn0].flags &= 0;
+                        sfence_vma();
+                    }
+                }
             }
             if (pt1[vpn1].flags & PTE_G)
                 continue;
             memory_free_page(pt0);
+            sfence_vma();
         }
         if (pt2[vpn2].flags & PTE_G)
             continue;
         memory_free_page(pt1);
+        sfence_vma();
     }
-    memory_free_page(pt2);
     sfence_vma();
 }
 
@@ -325,10 +342,9 @@ void *memory_alloc_page(void)
         panic("No free pages available!");
     union linked_page *allocated_page = free_list;
     free_list = free_list->next;
-    allocated_page->next = NULL;
     if (allocated_page > RAM_END || allocated_page < RAM_START)
         panic("Invalid physical page!");
-    return allocated_page;
+    return (void *)allocated_page;
 }
 
 // Returns a previously allocated physical page to the free page pool.
@@ -363,9 +379,6 @@ void *memory_alloc_and_map_page(
         panic("Failed to allocate new physical page!");
     // get pte of vma
     struct pte *pte = walk_pt(active_space_root(), vma, 1);
-    kprintf("pte: %x\n", pte);
-    kprintf("page: %x\n", page);
-    kprintf("vmaddr: %x\n", vma);
     if (pte == NULL)
         panic("Failed to allocate page table entry");
     // map the vma to the physical page
@@ -412,6 +425,8 @@ void memory_unmap_and_free_user(void)
                 if ((!pt0[vpn0].flags & PTE_V) || !(pt0[vpn0].flags & PTE_U))
                     continue;
                 memory_free_page(pagenum_to_pageptr(pt0[vpn0].ppn));
+                pt0[vpn0].ppn &= 0;
+                pt0[vpn0].flags &= 0;
             }
             if (pt1[vpn1].flags & PTE_U)
                 continue;
