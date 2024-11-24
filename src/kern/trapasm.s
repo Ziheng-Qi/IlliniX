@@ -172,7 +172,7 @@ _trap_entry_from_umode:
         save_gprs_except_t6_and_sp
         save_sstatus_and_sepc
 
-        ld     tp, 2*8(sp) # tp is x4
+        ld     tp, 4*8(sp) # tp is x4
 
         call    trap_umode_cont
         # U mode handlers return here because the call instruction above places

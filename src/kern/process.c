@@ -50,10 +50,19 @@ char procmgr_initialized = 0;
 //
 
 void procmgr_init(void){
+    // initialize process table
+    for(int i = 0; i < NPROC; i++){
+        if(i != MAIN_PID){
+            proctab[i] = NULL;
+        }
+    }
+
     main_proc.id = MAIN_PID; // main process always have pid 0
     main_proc.tid = running_thread(); // main thread always have tid 0
     main_proc.mtag = active_memory_space();
     thread_set_process(main_proc.tid, &main_proc);
+
+    // just in case
     for (int i = 0; i < PROCESS_IOMAX; i++){
         main_proc.iotab[i] = NULL;
     }
@@ -90,8 +99,7 @@ void process_exit(void){
 
      
     // reclaim memory space
-    if (running_thread() == current_process()->tid)
-    {
+    if(running_thread() != main_proc.tid){
         memory_space_reclaim();
     }
 
@@ -112,3 +120,31 @@ void process_exit(void){
 // struct process *current_process(void) is written in process.h
 
 // int current_pid(void) is written in process.h 
+
+// return 0 in child thread, return tid of child if in parent thread.
+int process_fork(){
+    int parent_tid = running_thread();
+    int child_pid = 0;
+    for(;child_pid < NPROC; child_pid++){
+        if(proctab[child_pid] == NULL){ // this is an unused pid, child pid is now this
+            continue;
+        }
+    }
+
+    proctab[child_pid]->id = child_pid;
+    // proctab[child_pid]->mtag = memory_space_clone();
+    // struct io_intf* child_iotab[] = proctab[child_pid]->iotab;
+    // for(int i = 0; i < PROCESS_IOMAX; i++){
+    //     if(child_iotab[i] != NULL){
+    //         child_iotab[i]->ref_cnt ++;
+    //     }
+    // }
+
+    // parent thread
+    if(running_thread() == parent_tid){
+        return proctab[child_pid]->tid;
+    }
+
+    // child thread
+    return 0;
+}

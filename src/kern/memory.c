@@ -436,6 +436,8 @@ void memory_unmap_and_free_user(void)
             continue;
         memory_free_page(pt1);
     }
+    // root level pte to 0xC0000000 is no longer valid
+    pt2[3].flags &= ~ PTE_V;
     // memory_free_page(pt2);
     sfence_vma();
 }

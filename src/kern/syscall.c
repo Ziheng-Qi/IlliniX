@@ -54,6 +54,8 @@ static int sysclose(int fd)
   struct io_intf *io = proc->iotab[fd];
   ioclose(io);
   proc->iotab[fd] = NULL;
+  
+  return 0;
 }
 
 static int sysread(int fd, void *buf, size_t bufsz)
@@ -173,7 +175,6 @@ static int sysexec(int fd)
   {
     return -EBADFD;
   }
-  uintptr_t entry;
 
   struct io_intf *io = proc->iotab[fd];
 

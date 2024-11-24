@@ -238,7 +238,7 @@ int thread_spawn(const char * name, void (*start)(void *), void * arg) {
 
 void thread_exit(void) {
     if (CURTHR == &main_thread){
-        kprintf("ending main thread");
+        kprintf("ending main thread\n");
         halt_success();
     }
     set_thread_state(CURTHR, THREAD_EXITED);
