@@ -53,6 +53,23 @@ void smode_excp_handler(unsigned int code, struct trap_frame * tfr) {
 	default_excp_handler(code, tfr);
 }
 
+/**
+ * @brief Handles user mode exceptions.
+ *
+ * This function is called when an exception occurs in user mode. It dispatches
+ * the exception to the appropriate handler based on the exception code.
+ *
+ * @param code The exception code indicating the type of exception.
+ * @param tfr Pointer to the trap frame containing the state of the CPU at the
+ *            time of the exception.
+ *
+ * Exception codes and their handlers:
+ * - RISCV_SCAUSE_ECALL_FROM_UMODE: Handles system calls from user mode.
+ * - RISCV_SCAUSE_INSTR_PAGE_FAULT: Handles instruction page faults.
+ * - RISCV_SCAUSE_LOAD_PAGE_FAULT: Handles load page faults.
+ * - RISCV_SCAUSE_STORE_PAGE_FAULT: Handles store page faults.
+ * - default: Handles all other exceptions using the default handler.
+ */
 void umode_excp_handler(unsigned int code, struct trap_frame * tfr) {
     switch (code) {
     // TODO: FIXME dispatch to various U mode exception handlers

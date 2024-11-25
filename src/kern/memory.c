@@ -111,6 +111,32 @@ static struct pte main_pt0_0x80000[PTE_CNT]
 // EXPORTED FUNCTION DEFINITIONS
 //
 
+/**
+ * @brief Initializes the memory management system.
+ *
+ * This function sets up the memory layout and initializes the page tables
+ * for the kernel. It ensures that the kernel image fits within a 2MB megapage,
+ * sets up identity mapping for the first 2GB of memory, and configures the
+ * main page table with appropriate permissions for different regions of the
+ * kernel image. It also initializes the heap memory manager and the free page
+ * list for the page allocator.
+ *
+ * Memory layout:
+ * - 0 to RAM_START: RW gigapages (MMIO region)
+ * - RAM_START to _kimg_end: RX/R/RW pages based on kernel image
+ * - _kimg_end to RAM_START + MEGA_SIZE: RW pages (heap and free page pool)
+ * - RAM_START + MEGA_SIZE to RAM_END: RW megapages (free page pool)
+ *
+ * @note This function must be called during the system initialization process.
+ *       It assumes that the kernel image is loaded at RAM_START and that the
+ *       memory regions are properly defined.
+ *
+ * @warning If the kernel image is too large to fit within a 2MB megapage,
+ *          the function will panic.
+ *
+ * @param None
+ * @return None
+ */
 void memory_init(void)
 {
     const void *const text_start = _kimg_text_start;
@@ -248,6 +274,19 @@ void memory_init(void)
 // it will create the appropriate page tables to walk to the leaf page table (”level 0”).
 // It returns a pointer to the page table entry that represents the 4 kB page containing vma.
 // This function will only walk to a 4 kB page, not a megapage or gigapage.
+/**
+ * walk_pt - Walks through the page table and optionally creates new page tables if they do not exist.
+ * @root: Pointer to the root page table entry.
+ * @vma: Virtual memory address to be translated.
+ * @create: Flag indicating whether to create new page tables if they do not exist (non-zero to create).
+ *
+ * This function traverses the multi-level page table structure starting from the root page table entry.
+ * It walks down each level of the page table hierarchy (level 2, level 1, and level 0) and optionally
+ * allocates new page tables if they do not exist and the create flag is set. The function returns a pointer
+ * to the page table entry corresponding to the given virtual memory address.
+ *
+ * Return: Pointer to the page table entry corresponding to the given virtual memory address.
+ */
 struct pte *walk_pt(struct pte *root, uintptr_t vma, int create)
 {
     // walk down every level and create table if table not exist
@@ -281,6 +320,26 @@ struct pte *walk_pt(struct pte *root, uintptr_t vma, int create)
 // memory space that was active on entry. All physical pages mapped by the memory space
 // that are not part of the global mapping are reclaimed.
 // Question: what is reclaim? Are we recalling all the previously active space?
+/**
+ * @brief Reclaims memory space by traversing and freeing unused pages.
+ *
+ * This function switches to the main memory tag and iterates through the page tables
+ * to identify and free pages that are not marked as global and are valid. It updates
+ * the free list with the reclaimed pages.
+ *
+ * The function performs the following steps:
+ * 1. Switches to the main memory tag.
+ * 2. Iterates through the second-level page table entries.
+ * 3. For each valid and non-global entry, iterates through the first-level page table entries.
+ * 4. For each valid and non-global entry, iterates through the zero-level page table entries.
+ * 5. For each valid and non-global entry, adds the page to the free list and clears the page table entry.
+ * 6. Frees the zero-level page table if it is not marked as global.
+ * 7. Frees the first-level page table if it is not marked as global.
+ * 8. Ensures the changes are protected by calling sfence_vma to flush TLB.
+ *
+ * @note This function assumes that the page tables are organized in a hierarchical manner
+ *       with three levels (second-level, first-level, and zero-level).
+ */
 void memory_space_reclaim(void)
 {
     uintptr_t old_mtag = memory_space_switch(main_mtag);
@@ -336,6 +395,20 @@ void memory_space_reclaim(void)
 // Allocates a physical page from the free physical page pool and returns a pointer
 // to the direct-mapped addr of the page. Return value in [RAM_START, RAM_END],
 // so VMA = PMA. Panics if there are no free pages available.
+/**
+ * @brief Allocates a page of memory from the free list.
+ *
+ * This function allocates a page of memory by removing the first page from the free list.
+ * If there are no free pages available, it triggers a panic with an appropriate message.
+ * It also checks if the allocated page is within the valid physical memory range and
+ * triggers a panic if the page is invalid.
+ *
+ * @return A pointer to the allocated page of memory.
+ *
+ * @note This function assumes that `free_list` is a global variable pointing to the head
+ *       of the free list of pages, and that `RAM_START` and `RAM_END` define the valid
+ *       range of physical memory addresses.
+ */
 void *memory_alloc_page(void)
 {
     if (free_list == NULL)
@@ -348,6 +421,17 @@ void *memory_alloc_page(void)
 }
 
 // Returns a previously allocated physical page to the free page pool.
+/**
+ * @brief Frees a previously allocated memory page and adds it back to the free list.
+ *
+ * This function takes a pointer to a previously allocated memory page and inserts it
+ * at the head of the free list, making it available for future allocations.
+ *
+ * @param pp Pointer to the memory page to be freed. Must not be NULL.
+ *
+ * @note If the provided pointer is NULL, the function will trigger a panic with the
+ *       message "Invalid allocated physical page!".
+ */
 void memory_free_page(void *pp)
 {
     // insert the page to the head
@@ -366,6 +450,21 @@ void memory_free_page(void *pp)
 // specified. (The D, A, and V flags are always added by memory_map_page.) The
 // function returns a pointer to the mapped virtual page, i.e., (void*)vma.
 // Does not fail; panics if the request cannot be satsified.
+/**
+ * @brief Allocates a new physical page and maps it to the specified virtual memory address (vma).
+ *
+ * This function allocates a new physical page and maps it to the given virtual memory address (vma).
+ * It also sets the appropriate page table entry (pte) flags based on the provided rwxug_flags.
+ *
+ * @param vma The virtual memory address to map the new physical page to.
+ * @param rwxug_flags The flags to set for the page table entry, indicating read/write/execute/user/global permissions.
+ *
+ * @return The virtual memory address (vma) that was mapped to the new physical page.
+ *
+ * @note If the free list is empty, a message with the current virtual memory address is printed.
+ * @note If memory allocation for the new physical page fails, the function will panic.
+ * @note If allocation of the page table entry fails, the function will panic.
+ */
 void *memory_alloc_and_map_page(
     uintptr_t vma, uint_fast8_t rwxug_flags)
 {
@@ -390,6 +489,19 @@ void *memory_alloc_and_map_page(
 // Allocates and maps multiple physical pages in an address range. Equivalent to
 // calling memory_alloc_and_map_page for every page in the range. Returns the mapped
 // virtual memory address.
+/**
+ * @brief Allocates and maps a range of memory pages.
+ *
+ * This function allocates and maps memory pages starting from the given virtual memory address (vma)
+ * and spanning the specified size. The pages are allocated and mapped with the provided read/write/execute/user/global
+ * (rwxug) flags.
+ *
+ * @param vma The starting virtual memory address for the allocation.
+ * @param size The size of the memory range to allocate and map, in bytes.
+ * @param rwxug_flags The flags indicating the permissions and attributes for the allocated pages.
+ *
+ * @return The starting virtual memory address (vma) of the allocated and mapped range.
+ */
 void *memory_alloc_and_map_range(
     uintptr_t vma, size_t size, uint_fast8_t rwxug_flags)
 {
@@ -407,6 +519,24 @@ void *memory_alloc_and_map_range(
 }
 
 // Unmaps and frees all pages with the U flag asserted.
+/**
+ * @brief Unmaps and frees user memory pages.
+ *
+ * This function traverses the page table entries (PTEs) at three levels (pt2, pt1, pt0)
+ * and frees the memory pages that are mapped and marked as user pages.
+ *
+ * The function performs the following steps:
+ * 1. Retrieves the root page table (pt2).
+ * 2. Iterates through the second-level PTEs (vpn2).
+ * 3. Checks if the PTE is valid (PTE_V) and a user page (PTE_U).
+ * 4. Retrieves the first-level page table (pt1) and iterates through its PTEs (vpn1).
+ * 5. Checks if the PTE is valid (PTE_V) and a user page (PTE_U).
+ * 6. Retrieves the zero-level page table (pt0) and iterates through its PTEs (vpn0).
+ * 7. Checks if the PTE is valid (PTE_V) and a user page (PTE_U).
+ * 8. Frees the memory page and clears the PTE.
+ * 9. Frees the first-level page table if no user pages remain.
+ * 10. Use sfence_vma to flush the TLB and prevent bad memory accesses.
+ */
 void memory_unmap_and_free_user(void)
 {
     struct pte *pt2 = active_space_root();
@@ -436,13 +566,22 @@ void memory_unmap_and_free_user(void)
             continue;
         memory_free_page(pt1);
     }
-    // root level pte to 0xC0000000 is no longer valid
-    pt2[3].flags &= ~ PTE_V;
-    // memory_free_page(pt2);
+    pt2[3].flags &= ~PTE_V;
     sfence_vma();
 }
 
 // Sets the flags of the PTE associated with vp. Only works with 4 kB pages.
+/**
+ * @brief Sets the page table entry flags for a given virtual address.
+ *
+ * This function updates the flags of the page table entry corresponding to the
+ * provided virtual address. The flags are set based on the provided rwxug_flags
+ * and additional flags for dirty (PTE_D), accessed (PTE_A), and valid (PTE_V) states.
+ *
+ * @param vp The virtual address for which the page table entry flags are to be set.
+ * @param rwxug_flags The flags to be set for the page table entry, including read, write,
+ *                    execute, user, and global permissions.
+ */
 void memory_set_page_flags(const void *vp, uint8_t rwxug_flags)
 {
     struct pte *pte = walk_pt(active_space_root(), vp, 0);
@@ -452,6 +591,18 @@ void memory_set_page_flags(const void *vp, uint8_t rwxug_flags)
 }
 
 // Changes the PTE flags for all pages in a mapped range.
+/**
+ * @brief Sets the memory range flags for a given virtual address range.
+ *
+ * This function sets the specified flags for each page table entry (PTE)
+ * within the given virtual address range. The range is rounded up to the
+ * nearest page size boundary.
+ *
+ * @param vp Pointer to the start of the virtual address range.
+ * @param size Size of the memory range in bytes.
+ * @param rwxug_flags Flags to set for the memory range. These flags typically
+ *                    include read, write, execute, user, and global permissions.
+ */
 void memory_set_range_flags(
     const void *vp, size_t size, uint_fast8_t rwxug_flags)
 {
@@ -469,9 +620,35 @@ void memory_set_range_flags(
 // Checks if a virtual address range is mapped with specified flags. Returns 1
 // if and only if every virtual page containing the specified virtual address
 // range is mapped with the at least the specified flags.
+/**
+ * @brief Validates a memory region specified by a virtual pointer and length.
+ *
+ * This function checks if the memory region starting at the virtual pointer `vp`
+ * and spanning `len` bytes is valid according to the specified access flags.
+ *
+ * @param vp The starting virtual pointer of the memory region to validate.
+ * @param len The length of the memory region in bytes.
+ * @param rwxug_flags The access flags indicating the permissions for the memory region.
+ *                     - Read (R)
+ *                     - Write (W)
+ *                     - Execute (X)
+ *                     - User (U)
+ *                     - Global (G)
+ *
+ * @return Returns 0 if the memory region is valid, otherwise returns an error code.
+ */
 int memory_validate_vptr_len(
     const void *vp, size_t len, uint_fast8_t rwxug_flags)
 {
+    struct pte *pte = walk_pt(active_space_root(), (uintptr_t)vp, 0);
+    if (pte == NULL)
+        return -EINVAL;
+    for (uintptr_t vma = (uintptr_t)vp; vma < (uintptr_t)vp + len; vma += PAGE_SIZE)
+    {
+        struct pte *pte = walk_pt(active_space_root(), vma, 0);
+        if (pte == NULL || !(pte->flags & PTE_V) || !(pte->flags & rwxug_flags))
+            return -EINVAL;
+    }
     return 0;
 }
 
@@ -483,12 +660,32 @@ int memory_validate_vptr_len(
 int memory_validate_vstr(
     const char *vs, uint_fast8_t ug_flags)
 {
-    return 0;
+    struct pte *pte = walk_pt(active_space_root(), (uintptr_t)vs, 0);
+    if (pte == NULL)
+        return 0;
+    for (const char *s = vs; *s != '\0'; s++)
+    {
+        struct pte *pte = walk_pt(active_space_root(), (uintptr_t)s, 0);
+        if (pte == NULL || !(pte->flags & PTE_V) || !(pte->flags & ug_flags))
+            return 0;
+    }
+    return 1;
 }
 
 // Called from excp.c to handle a page fault at the specified virtual address. Either
 // maps a page containing the faulting address, or calls process_exit, depending on if the address
 // is within the user region. Must call this func when a store page fault is triggered by a user program.
+/**
+ * @brief Handles a page fault by allocating and mapping a new page.
+ *
+ * This function is called when a page fault occurs. It checks if the faulting
+ * address is within the user region. If the address is outside the user region,
+ * it prints an error message and terminates the process. Otherwise, it allocates
+ * and maps a new page for the faulting address with read, write, and user permissions.
+ * Finally, it flushes the TLB for the updated virtual memory area.
+ *
+ * @param vptr The faulting virtual address.
+ */
 void memory_handle_page_fault(const void *vptr)
 {
     if (vptr < USER_START_VMA || vptr > USER_END_VMA)
