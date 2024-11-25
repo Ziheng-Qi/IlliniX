@@ -104,3 +104,7 @@ They are not parallel conditions.
 #### November 24, 2024
 
 Encountered a bug which while invoking `thread_exit` within `thread.c` after `process_exit` called the function in `process.c`, the condition broadcast got a wrong condition variable, the condition waitlist is completely unreachable and a LOAD ACCESS FAULT occured when trying to access the condition variable.
+
+Solution:
+
+It turns out the `tp` was incorrect at `_trap_entry_from_umode`

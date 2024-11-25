@@ -695,6 +695,7 @@ void memory_handle_page_fault(const void *vptr)
     }
     memory_alloc_and_map_page(vptr, PTE_R | PTE_W | PTE_U);
     sfence_vma();
+    return 0;
 }
 
 // INTERNAL FUNCTION DEFINITIONS

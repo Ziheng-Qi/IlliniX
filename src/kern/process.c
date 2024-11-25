@@ -49,6 +49,17 @@ char procmgr_initialized = 0;
 // EXPORTED FUNCTION DEFINITIONS
 //
 
+/**
+ * @brief Initializes the process manager.
+ *
+ * This function sets up the process table and initializes the main process.
+ * It ensures that all process slots except the main process are set to NULL.
+ * The main process is assigned a process ID (pid) of MAIN_PID and a thread ID (tid)
+ * corresponding to the currently running thread. The main process's memory tag is
+ * set to the active memory space, and the thread is associated with the main process.
+ * Additionally, all I/O table entries for the main process are set to NULL.
+ * Finally, the process manager is marked as initialized.
+ */
 void procmgr_init(void){
     // initialize process table
     for(int i = 0; i < NPROC; i++){
@@ -69,8 +80,18 @@ void procmgr_init(void){
     procmgr_initialized = 1;
 }
 
-
-
+/**
+ * @brief Executes a process from the given IO interface.
+ *
+ * This function performs the following steps to execute a process:
+ * 1. Unmaps any virtual memory mappings belonging to other user processes.
+ * 2. Creates and initializes a fresh 2nd level (root) page table with the default mappings for a user process.
+ * 3. Loads the executable from the provided IO interface into the mapped pages.
+ * 4. Starts the thread associated with the process in user-mode.
+ *
+ * @param exeio Pointer to the IO interface from which the executable is loaded.
+ * @return int Returns 0 on success, or a negative error code on failure.
+ */
 int process_exec(struct io_intf *exeio){
     // 1. Any virtual memory mappings belonging to other user processes should be unmapped
     memory_unmap_and_free_user();
@@ -95,6 +116,18 @@ int process_exec(struct io_intf *exeio){
 //  • Process memory space
 //  • Open I/O interfaces
 //  • Associated kernel thread
+/**
+ * @brief Terminates the current process and performs necessary cleanup.
+ *
+ * This function is responsible for terminating the current process by performing
+ * the following steps:
+ * 1. Reclaims memory space if the running thread is not the main process.
+ * 2. Closes all I/O interfaces associated with the current process.
+ * 3. Exits the current thread.
+ *
+ * @note This function should be called when a process needs to be terminated
+ *       to ensure proper resource cleanup.
+ */
 void process_exit(void){
 
      
@@ -122,6 +155,18 @@ void process_exit(void){
 // int current_pid(void) is written in process.h 
 
 // return 0 in child thread, return tid of child if in parent thread.
+/**
+ * @brief Forks the current process to create a new child process.
+ *
+ * This function creates a new child process by finding an unused process ID (PID)
+ * from the process table (`proctab`). It assigns the new PID to the child process
+ * and sets up the necessary process structures. The function distinguishes between
+ * the parent and child processes and returns the appropriate thread ID (TID).
+ *
+ * @return int
+ * - If called by the parent process, returns the TID of the child process.
+ * - If called by the child process, returns 0.
+ */
 int process_fork(){
     int parent_tid = running_thread();
     int child_pid = 0;
