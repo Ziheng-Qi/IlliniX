@@ -662,14 +662,14 @@ int memory_validate_vstr(
 {
     struct pte *pte = walk_pt(active_space_root(), (uintptr_t)vs, 0);
     if (pte == NULL)
-        return 0;
+        return -EINVAL;
     for (const char *s = vs; *s != '\0'; s++)
     {
         struct pte *pte = walk_pt(active_space_root(), (uintptr_t)s, 0);
         if (pte == NULL || !(pte->flags & PTE_V) || !(pte->flags & ug_flags))
-            return 0;
+            return -EINVAL;
     }
-    return 1;
+    return 0;
 }
 
 // Called from excp.c to handle a page fault at the specified virtual address. Either
