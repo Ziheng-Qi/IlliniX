@@ -76,12 +76,6 @@ void umode_excp_handler(unsigned int code, struct trap_frame * tfr) {
     case RISCV_SCAUSE_ECALL_FROM_UMODE:
         syscall_handler(tfr);
         break;
-    case RISCV_SCAUSE_INSTR_PAGE_FAULT:
-        memory_handle_page_fault((void *)csrr_stval());
-        break;
-    case RISCV_SCAUSE_LOAD_PAGE_FAULT:
-        memory_handle_page_fault((void *)csrr_stval());
-        break;
     case RISCV_SCAUSE_STORE_PAGE_FAULT:
         memory_handle_page_fault((void *)csrr_stval());
         break;

@@ -68,9 +68,9 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)) {
                 return -EACCESS;
             uint_fast8_t pte_flags = phdr_flag_to_pte_flag(prog_hdr.p_flags) | PTE_U;
             uintptr_t vaddr = prog_hdr.p_vaddr;
-            vaddr = memory_alloc_and_map_range(vaddr, prog_hdr.p_filesz, PTE_R | PTE_W | PTE_U);
-            result = ioread(io, vaddr, prog_hdr.p_filesz);
-            memory_set_range_flags(vaddr, prog_hdr.p_filesz, pte_flags);
+            vaddr = (uintptr_t)(memory_alloc_and_map_range(vaddr, prog_hdr.p_filesz, PTE_R | PTE_W | PTE_U));
+            result = ioread(io, (void *)vaddr, prog_hdr.p_filesz);
+            memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, pte_flags);
             if (result < 0)
                 return result;
         }

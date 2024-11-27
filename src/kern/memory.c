@@ -144,7 +144,6 @@ void memory_init(void)
     const void *const rodata_start = _kimg_rodata_start;
     const void *const rodata_end = _kimg_rodata_end;
     const void *const data_start = _kimg_data_start;
-    union linked_page *page;
     void *heap_start;
     void *heap_end;
     size_t page_cnt;
@@ -291,7 +290,7 @@ struct pte *walk_pt(struct pte *root, uintptr_t vma, int create)
 {
     // walk down every level and create table if table not exist
     uintptr_t pt1_ppn = root[VPN2(vma)].ppn;
-    uintptr_t pt1_pma = pagenum_to_pageptr(pt1_ppn);
+    uintptr_t pt1_pma = (uintptr_t)pagenum_to_pageptr(pt1_ppn);
     struct pte *pt1 = (struct pte *)pt1_pma;
     if (create != 0 && !(root[VPN2(vma)].flags & PTE_V))
     {
@@ -301,7 +300,7 @@ struct pte *walk_pt(struct pte *root, uintptr_t vma, int create)
     }
 
     uintptr_t pt0_ppn = pt1[VPN1(vma)].ppn;
-    uintptr_t pt0_pma = pagenum_to_pageptr(pt0_ppn);
+    uintptr_t pt0_pma = (uintptr_t)pagenum_to_pageptr(pt0_ppn);
     struct pte *pt0 = (struct pte *)pt0_pma;
     if (create != 0 && !(pt1[VPN1(vma)].flags & PTE_V))
     {
@@ -309,9 +308,6 @@ struct pte *walk_pt(struct pte *root, uintptr_t vma, int create)
         pt1[VPN1(vma)] = ptab_pte((struct pte *)allocated_page, 0);
         pt0 = allocated_page;
     }
-
-    uintptr_t ppn = pt0[VPN0(vma)].ppn;
-    uintptr_t pma = (ppn << 12) | (vma & 0xFFF);
 
     return &pt0[VPN0(vma)];
 }
@@ -415,7 +411,7 @@ void *memory_alloc_page(void)
         panic("No free pages available!");
     union linked_page *allocated_page = free_list;
     free_list = free_list->next;
-    if (allocated_page > RAM_END || allocated_page < RAM_START)
+    if ((uintptr_t)allocated_page > (uintptr_t)RAM_END || (uintptr_t)allocated_page < (uintptr_t)RAM_START)
         panic("Invalid physical page!");
     return (void *)allocated_page;
 }
@@ -483,7 +479,7 @@ void *memory_alloc_and_map_page(
     // map the vma to the physical page
     pte->ppn = pageptr_to_pagenum(page);
     pte->flags = rwxug_flags | PTE_D | PTE_A | PTE_V;
-    return vma;
+    return (void *)vma;
 }
 
 // Allocates and maps multiple physical pages in an address range. Equivalent to
@@ -505,17 +501,16 @@ void *memory_alloc_and_map_page(
 void *memory_alloc_and_map_range(
     uintptr_t vma, size_t size, uint_fast8_t rwxug_flags)
 {
-    uintptr_t initial_vma = vma;
     uintptr_t temp_addr;
     uintptr_t rounded_addr = round_up_addr(vma, PAGE_SIZE);
     uintptr_t round_up_bound = round_up_size(rounded_addr + size, PAGE_SIZE);
     for (uintptr_t addr = rounded_addr; addr < round_up_bound; addr += PAGE_SIZE)
     {
-        temp_addr = memory_alloc_and_map_page(addr, rwxug_flags);
-        if (temp_addr == NULL)
+        temp_addr = (uintptr_t)memory_alloc_and_map_page(addr, rwxug_flags);
+        if (temp_addr == 0)
             kprintf("Allocation failed!");
     }
-    return vma;
+    return (void *)vma;
 }
 
 // Unmaps and frees all pages with the U flag asserted.
@@ -584,7 +579,7 @@ void memory_unmap_and_free_user(void)
  */
 void memory_set_page_flags(const void *vp, uint8_t rwxug_flags)
 {
-    struct pte *pte = walk_pt(active_space_root(), vp, 0);
+    struct pte *pte = walk_pt(active_space_root(), (uintptr_t)vp, 0);
 
     pte->flags = 0x0;
     pte->flags |= rwxug_flags | PTE_D | PTE_A | PTE_V;
@@ -607,10 +602,10 @@ void memory_set_range_flags(
     const void *vp, size_t size, uint_fast8_t rwxug_flags)
 {
     size = round_up_size(size, PAGE_SIZE);
-    for (uintptr_t vma = round_up_ptr(vp, PAGE_SIZE); vma < round_up_ptr(vp, PAGE_SIZE) + size; vma += PAGE_SIZE)
+    for (uintptr_t vma = (uintptr_t)round_up_ptr((void *)vp, PAGE_SIZE); vma < (uintptr_t)round_up_ptr((void *)vp, PAGE_SIZE) + size; vma += PAGE_SIZE)
     {
         struct pte *pte = walk_pt(active_space_root(), vma, 0);
-        if (pte == NULL | !(pte->flags | PTE_V))
+        if ((pte == NULL) | !(pte->flags | PTE_V))
             continue;
         pte->flags = 0x0;
         pte->flags |= rwxug_flags | PTE_D | PTE_A | PTE_V;
@@ -688,14 +683,13 @@ int memory_validate_vstr(
  */
 void memory_handle_page_fault(const void *vptr)
 {
-    if (vptr < USER_START_VMA || vptr > USER_END_VMA)
+    if ((uintptr_t)vptr < (uintptr_t)USER_START_VMA || (uintptr_t)vptr > (uintptr_t)USER_END_VMA)
     {
         kprintf("Address outside the user region\n");
         process_exit();
     }
-    memory_alloc_and_map_page(vptr, PTE_R | PTE_W | PTE_U);
+    memory_alloc_and_map_page((uintptr_t)vptr, PTE_R | PTE_W | PTE_U);
     sfence_vma();
-    return 0;
 }
 
 // INTERNAL FUNCTION DEFINITIONS

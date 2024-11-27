@@ -246,7 +246,6 @@ void thread_exit(void) {
     // Signal parent in case it is waiting for us to exit
 
     assert(CURTHR->parent != NULL);
-    struct condition *parent_cond = &CURTHR->parent->child_exit;
     condition_broadcast(&CURTHR->parent->child_exit);
 
     suspend_self(); // should not return
@@ -433,7 +432,7 @@ void init_idle_thread(void) {
 
     idle_thread.stack_base = _idle_stack_anchor;
     idle_thread.stack_size = _idle_stack_anchor - _idle_stack_lowest;
-    _thread_setup(&idle_thread, _idle_stack_anchor, idle_thread_func);
+    _thread_setup(&idle_thread, _idle_stack_anchor, (void *)idle_thread_func);
     tlinsert(&ready_list, &idle_thread); // interrupts still disabled
 
 }
