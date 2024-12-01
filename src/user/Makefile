@@ -34,6 +34,7 @@ bin/init1: $(ULIB_OBJS) init1.o
 
 bin/init2: $(ULIB_OBJS) init2.o
 	$(LD) -T user.ld -o $@ $^
+
 	
 clean:
 	rm -rf *.o *.elf *.asm bin/init0 bin/init1 bin/init2
