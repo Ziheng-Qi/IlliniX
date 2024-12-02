@@ -214,9 +214,22 @@ static int sysdevopen(int fd, const char *name, int instno)
     return -ENOENT;
   }
 
-  if (fd < 0 || fd >= MAX_FILE_OPEN)
+  if (fd >= MAX_FILE_OPEN)
   {
     return -EBADFD;
+  }
+
+  if (fd < 0)
+  {
+    // find the next empty entry of proc->iotab
+    for (int i = 0; i < MAX_FILE_OPEN; i++)
+    {
+      if (proc->iotab[i] == NULL)
+      {
+        fd = i;
+        break;
+      }
+    }
   }
 
   int result = device_open(&(proc->iotab[fd]), name, instno);
@@ -260,10 +273,23 @@ static int sysfsopen(int fd, const char *name)
   {
     return -ENOENT;
   }
-  if (fd < 0 || fd >= MAX_FILE_OPEN)
+  if (fd >= MAX_FILE_OPEN)
   {
     return -EBADFD;
   }
+  if (fd < 0)
+  {
+    // find the next empty entry of proc->iotab
+    for (int i = 0; i < MAX_FILE_OPEN; i++)
+    {
+      if (proc->iotab[i] == NULL)
+      {
+        fd = i;
+        break;
+      }
+    }
+  }
+
   proc->iotab[fd] = io;
   return 0;
 }
