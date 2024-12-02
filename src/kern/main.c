@@ -8,7 +8,8 @@
 #ifdef MAIN_DEBUG
 #define DEBUG
 #endif
-
+// #define WO_READ
+// #define RO_WRITE
 #define INIT_PROC "init1" // name of init process executable
 
 #include "console.h"
@@ -27,6 +28,34 @@
 #include "process.h"
 #include "config.h"
 
+void test_read_write_protection()
+{
+    uintptr_t test_vma;
+    struct pte *pte;
+
+    // Test reading from a page with only write access
+    test_vma = 0xD0001000;
+    memory_alloc_and_map_page(test_vma, PTE_W);
+    pte = walk_pt(active_space_root(), test_vma, 0);
+    assert(pte != NULL);
+
+#ifdef WO_READ
+    volatile uint64_t read_val = *((volatile uint64_t *)test_vma);
+    kprintf("Testing read from write-only page at VMA: %x\n", test_vma);
+#endif
+
+    // Test writing to a page with only read access
+
+#ifdef RO_WRITE
+    test_vma = 0xD0002000;
+    memory_alloc_and_map_page(test_vma, PTE_R);
+    pte = walk_pt(active_space_root(), test_vma, 0);
+    assert(pte != NULL);
+    kprintf("Testing write to read-only page at VMA: %x\n", test_vma);
+    *((volatile uint64_t *)test_vma) = 1234;
+    kprintf("Write to read-only page test passed!\n");
+#endif
+}
 
 void main(void) {
     struct io_intf * initio;
@@ -74,8 +103,7 @@ void main(void) {
     }
     kprintf("Paging implementation with repeated pointer arithmetic operations pass!\n");
 
-
-
+    test_read_write_protection();
     // kprintf("         ####### VirtMem Rubric_5 #######\n");
     // uintptr_t stack_vma = 0x80032000;
     // memory_alloc_and_map_page(stack_vma, PTE_R | PTE_W);
