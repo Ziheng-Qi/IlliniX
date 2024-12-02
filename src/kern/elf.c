@@ -1,6 +1,7 @@
 // #define _ELF_H_
 #include "elf.h"
-
+// #define ELF_TEST_USER
+#define ELF_TEST_FLAG 0
 uint_fast8_t phdr_flag_to_pte_flag(uint_fast32_t phdr_flags)
 {
     uint_fast8_t pte_flags = 0;
@@ -66,11 +67,25 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)) {
             // check if the vaddr is already mapped
             if ((pte->flags) & PTE_V)
                 return -EACCESS;
+            #ifndef ELF_TEST_USER
             uint_fast8_t pte_flags = phdr_flag_to_pte_flag(prog_hdr.p_flags) | PTE_U;
+            #else
+            uint_fast8_t pte_flags = phdr_flag_to_pte_flag(prog_hdr.p_flags);
+            #endif
             uintptr_t vaddr = prog_hdr.p_vaddr;
             vaddr = (uintptr_t)(memory_alloc_and_map_range(vaddr, prog_hdr.p_filesz, PTE_R | PTE_W | PTE_U));
             result = ioread(io, (void *)vaddr, prog_hdr.p_filesz);
-            memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, pte_flags);
+            switch (ELF_TEST_FLAG){
+                case PTE_R:
+                    memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, PTE_R);
+                    break;
+                case PTE_X:
+                    memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, PTE_X);
+                    break;
+                default:
+                    memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, pte_flags);
+                    break;
+            }
             if (result < 0)
                 return result;
         }
