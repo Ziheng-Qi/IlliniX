@@ -107,4 +107,9 @@ Encountered a bug which while invoking `thread_exit` within `thread.c` after `pr
 
 Solution:
 
-It turns out the `tp` was incorrect at `_trap_entry_from_umode`
+It turns out the `tp` was incorrect at `_trap_entry_from_umode` in `trap.c`, the `tp` should be the `thread_t` of the kernel, not the `thread_t` of the current process.
+
+#### November 25, 2024
+
+Encountered a bug such that the process won't exit, turns out that syscall forgot to increment `sepc` by 4.
+

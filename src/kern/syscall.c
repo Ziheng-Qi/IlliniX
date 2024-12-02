@@ -8,6 +8,8 @@
 #include "error.h"
 #include "fs.h"
 #include "memory.h"
+
+#define PC_ALIGN 4
 /*
  * syscall will be used for requesting actions from the kernel
  */
@@ -387,7 +389,7 @@ int sysfork(struct trap_frame *tfr)
 void syscall_handler(struct trap_frame *tfr)
 {
   // Get values within register a7 to determine which syscall to call
-  tfr->sepc += 4;
+  tfr->sepc += PC_ALIGN;
   switch (tfr->x[TFR_A7])
   {
   case SYSCALL_EXIT:
