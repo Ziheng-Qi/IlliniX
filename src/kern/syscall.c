@@ -120,6 +120,11 @@ static int sysread(int fd, void *buf, size_t bufsz)
     return -EBADFD;
   }
   struct io_intf *io = proc->iotab[fd];
+  int result = memory_validate_vptr_len(buf, bufsz, PTE_U | PTE_R);
+  if (result != 0)
+  {
+    return result;
+  }
   return ioread(io, buf, bufsz);
 }
 
@@ -154,6 +159,11 @@ static int syswrite(int fd, const void *buf, size_t len)
     return -EBADFD;
   }
   struct io_intf *io = proc->iotab[fd];
+  int result = memory_validate_vptr_len(buf, len, PTE_U | PTE_W);
+  if (result != 0)
+  {
+    return result;
+  }
   return iowrite(io, buf, len);
 }
 
