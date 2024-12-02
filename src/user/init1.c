@@ -15,7 +15,29 @@ void main(void) {
         return;
 
     slen = strlen(greeting);
+
+    char c;
+
+    c = ' ';
+    while (1)
+    {
+        _read(0, &c, 1);
+        if (c == '\r')
+        {
+            break;
+        }
+    }
+
     _write(0, greeting, slen);
 
+    c = ' ';
+    while (1)
+    {
+        _read(0, &c, 1);
+        if (c == '\r')
+        {
+            break;
+        }
+    }
     _close(0);
 }
