@@ -9,7 +9,7 @@
 #define DEBUG
 #endif
 
-#define INIT_PROC "init0" // name of init process executable
+#define INIT_PROC "init4" // name of init process executable
 
 #include "console.h"
 #include "thread.h"
@@ -74,13 +74,15 @@ void main(void) {
     }
     kprintf("Paging implementation with repeated pointer arithmetic operations pass!\n");
 
-    kprintf("         ####### VirtMem Rubric_5 #######\n");
-    uintptr_t stack_vma = 0x80032000;
-    memory_alloc_and_map_page(stack_vma, PTE_R | PTE_W);
-    pte = walk_pt(active_space_root(), stack_vma, 0);
-    kprintf("unmapped vma in user program: %x\nmapping to pma: %x\nwith pte: %x\n",stack_vma,(pte->ppn)<<12,pte);
-    *((volatile uint64_t *)stack_vma) = 3026;
-    value = *(uint64_t*)((pte->ppn)<<12);
+
+
+    // kprintf("         ####### VirtMem Rubric_5 #######\n");
+    // uintptr_t stack_vma = 0x80032000;
+    // memory_alloc_and_map_page(stack_vma, PTE_R | PTE_W);
+    // pte = walk_pt(active_space_root(), stack_vma, 0);
+    // kprintf("unmapped vma in user program: %x\nmapping to pma: %x\nwith pte: %x\n",stack_vma,(pte->ppn)<<12,pte);
+    // *((volatile uint64_t *)stack_vma) = 3026;
+    // value = *(uint64_t*)((pte->ppn)<<12);
 
 
     // Attach NS16550a serial devices

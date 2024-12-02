@@ -1,5 +1,6 @@
 #include "syscall.h"
 #include "string.h"
+#include "memory.h"
 
 #define PTE_V (1 << 0)
 #define PTE_R (1 << 1)
@@ -14,16 +15,11 @@ typedef unsigned long int	uintptr_t;
 typedef unsigned long int __uint64_t;
 typedef __uint64_t uint64_t;
 
+// This user program tests read/write a kernel page from user program.
+// It should generate "Load page fault"
+
 void main(void) {
-    ckprintf("         ####### VirtMem Rubric_5 #######\n");
-    int stack_vma = 0x80032000;
-    memory_alloc_and_map_page(stack_vma, PTE_R | PTE_W);
-    struct pte* pte = walk_pt(active_space_root(), stack_vma, 0);
-    kprintf("unmapped vma in user program: %x\nmapping to pma: %x\nwith pte: %x\n",stack_vma,(pte->ppn)<<12,pte);
-    *((volatile uint64_t *)stack_vma) = 3026;
-    uint64_t value = *(uint64_t*)((pte->ppn)<<12);
-    if (value == 3026)
-        kprintf("Demamd paging read/write pass!\n");
-    else
-        kprintf("Demand paging read/write fail!\n");
-}
+    uintptr_t* stack_vma = 0x80032000;
+    *stack_vma = 0xC0001000;
+    uintptr_t value = *stack_vma;
+}   
