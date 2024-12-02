@@ -81,7 +81,7 @@ int fs_open(const char *name, struct io_intf **io)
       ioseek(fs_io, position);
       inode_t* file_inode = kmalloc(BLOCK_SIZE);
       ioread_full(fs_io, file_inode, BLOCK_SIZE);
-      uint64_t file_size = (uint64_t)(&file_inode->byte_len);
+      uint64_t file_size = (uint64_t)(file_inode->byte_len);
       uint64_t flag = INUSE;
       for (int j = 0; j < MAX_FILE_OPEN; j++)
       {
@@ -417,7 +417,7 @@ int fs_ioctl(struct io_intf *io, int cmd, void *arg)
 {
   for (int i = 0; i < MAX_FILE_OPEN; i++)
   {
-    file_t *file = &file_desc_tab[i];
+    file_t *file = &(file_desc_tab[i]);
     struct io_intf *file_io = file->io;
     // check if the file_io is the same `io_intf` as the argument provided
     if (io == file_io)

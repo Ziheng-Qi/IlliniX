@@ -31,17 +31,26 @@ void main(void)
     }
     char num[10];
     itoa(len, num, 10);
+    _msgout("Length of file: ");
     _msgout(num);
-    len = 434;
+    // len = 456;
+    size_t blksz;
+    result = _ioctl(fd, IOCTL_GETBLKSZ, &blksz);
+    if (result < 0)
+    {
+        _msgout("ioctl failed");
+        _exit();
+    }
+    itoa(blksz, num, 10);
+    _msgout("Block size: ");
+    _msgout(num);
     char buf[len];
-
     c = ' ';
     while (1)
     {
         _read(0, &c, 1);
         if (c == '\r')
         {
-            _write(0, "continuing...\n\r", 14);
             break;
         }
     }
@@ -60,6 +69,7 @@ void main(void)
         _msgout("write failed");
         _exit();
     }
+    _write(0, "\n\r", 2);
     size_t pos = 0;
     _ioctl(fd, IOCTL_SETPOS, &pos);
 
@@ -71,7 +81,6 @@ void main(void)
         _read(0, &c, 1);
         if (c == '\r')
         {
-            _write(0, "continuing...\n\r", 14);
             break;
         }
     }
@@ -83,6 +92,7 @@ void main(void)
     }
 
     result = _write(0, buf, len);
+    _write(0, "\n\r", 2);
     if (result < 0)
     {
         _msgout("write failed");
@@ -95,7 +105,6 @@ void main(void)
         _read(0, &c, 1);
         if (c == '\r')
         {
-            _write(0, "continuing...\n\r", 14);
             break;
         }
     }

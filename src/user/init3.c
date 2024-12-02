@@ -19,7 +19,7 @@ typedef __uint64_t uint64_t;
 // It should generate "Load page fault"
 
 void main(void) {
-    uintptr_t* stack_vma = 0x80032000;
+    uintptr_t *stack_vma = (uintptr_t *)0x80032000;
     *stack_vma = 0xC0001000;
     uintptr_t value = *stack_vma;
 }   

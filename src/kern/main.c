@@ -48,7 +48,7 @@ void main(void) {
     struct pte* pte = walk_pt(active_space_root(), test_vma, 0);
     kprintf("unmapped vma in user program: %x\nmapping to pma: %x\nwith pte: %x\n",test_vma,(pte->ppn)<<12,pte);
     *((volatile uint64_t *)test_vma) = 3026;
-    uint64_t value = *(uint64_t*)((pte->ppn)<<12);
+    uint64_t value = (uint64_t)((pte->ppn) << 12);
     if (value == 3026)
         kprintf("Demamd paging read/write pass!\n");
     else
@@ -66,8 +66,8 @@ void main(void) {
     }
     for (uintptr_t j = 0; j < 0x1000; j += size) {
         ptr = (volatile uint32_t *)(base_vma + j);
-        pte = walk_pt(active_space_root(), ptr, 0);
-        uint32_t val = *(uint32_t*)((pte->ppn)<<12);
+        pte = walk_pt(active_space_root(), (uintptr_t)ptr, 0);
+        uint32_t val = (uint32_t)((pte->ppn) << 12);
         val = *ptr;
         if (val != (uint32_t)(j / size))
             panic("Paging implementation with repeated pointer arithmetic operations fail!\n");

@@ -77,10 +77,13 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)) {
             result = ioread(io, (void *)vaddr, prog_hdr.p_filesz);
             switch (ELF_TEST_FLAG){
                 case PTE_R:
-                    memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, PTE_R);
+                    memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, pte_flags & !(PTE_R));
                     break;
                 case PTE_X:
-                    memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, PTE_X);
+                    memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, pte_flags & !(PTE_X));
+                    break;
+                case PTE_W:
+                    memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, pte_flags & !(PTE_W));
                     break;
                 default:
                     memory_set_range_flags((void *)vaddr, prog_hdr.p_filesz, pte_flags);
