@@ -13,6 +13,7 @@ ULIB_OBJS = \
 	string.o \
 	io.o \
 	syscall.o \
+	stdlib.o \
 	start.o
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2

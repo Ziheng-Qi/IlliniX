@@ -188,7 +188,9 @@ static int sysioctl(int fd, const int cmd, void *arg)
     return -EBADFD;
   }
   struct io_intf *io = proc->iotab[fd];
-  return ioctl(io, cmd, arg);
+  int result = ioctl(io, cmd, arg);
+
+  return result;
 }
 
 /**
@@ -238,7 +240,7 @@ static int sysdevopen(int fd, const char *name, int instno)
     return result;
   }
 
-  return 0;
+  return fd;
 }
 
 /**
@@ -291,7 +293,7 @@ static int sysfsopen(int fd, const char *name)
   }
 
   proc->iotab[fd] = io;
-  return 0;
+  return fd;
 }
 
 /**

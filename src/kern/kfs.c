@@ -453,7 +453,8 @@ int fs_getlen(file_t *file, void *arg)
 {
   if (arg != NULL)
   {
-    *(uint64_t *)arg = file->file_size;
+    uint64_t size = file->file_size;
+    *(uint64_t *)arg = size;
   }
   else
   {

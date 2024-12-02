@@ -18,5 +18,16 @@
 #define SYSCALL_EXEC    30
 #define SYSCALL_FORK    31
 
-
+//            arg is pointer to uint64_t
+#define IOCTL_GETLEN 1
+//            arg is pointer to uint64_t
+#define IOCTL_SETLEN 2
+//            arg is pointer to uint64_t
+#define IOCTL_GETPOS 3
+//            arg is pointer to uint64_t
+#define IOCTL_SETPOS 4
+//            arg is ignored
+#define IOCTL_FLUSH 5
+//            arg is pointer to uint32_t
+#define IOCTL_GETBLKSZ 6
 #endif // _SCNUM_H_
