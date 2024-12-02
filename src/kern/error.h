@@ -1,5 +1,5 @@
-//           error.h - Error numbers
-//           
+// error.h - Error numbers
+// 
 
 #ifndef _ERROR_H_
 #define _ERROR_H_
@@ -11,6 +11,8 @@
 #define EIO         5
 #define EBADFMT     6
 #define ENOENT      7
+#define EACCESS     8
+#define EBADFD      9
+#define EMFILE     10
 
-//           _ERROR_H_
-#endif
+#endif // _ERROR_H_

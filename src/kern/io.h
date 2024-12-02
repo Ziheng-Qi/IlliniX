@@ -38,6 +38,7 @@ struct io_ops {
 
 struct io_intf {
 	const struct io_ops * ops;
+    uint64_t ref_cnt;
 };
 
 struct io_lit {

@@ -11,5 +11,8 @@
 #define EIO         5
 #define EBADFMT     6
 #define ENOENT      7
+#define EACCESS     8
+#define EBADFD      9
+#define EMFILE     10
 
 #endif // _ERROR_H_

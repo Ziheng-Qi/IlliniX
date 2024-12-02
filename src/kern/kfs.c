@@ -79,9 +79,9 @@ int fs_open(const char *name, struct io_intf **io)
       // console_printf("Seeking to position: %d\n", position);
       uint64_t file_position = 0;
       ioseek(fs_io, position);
-      inode_t file_inode;
-      ioread_full(fs_io, &file_inode, BLOCK_SIZE);
-      uint64_t file_size = file_inode.byte_len;
+      inode_t* file_inode = kmalloc(BLOCK_SIZE);
+      ioread_full(fs_io, file_inode, BLOCK_SIZE);
+      uint64_t file_size = (uint64_t)(file_inode->byte_len);
       uint64_t flag = INUSE;
       for (int j = 0; j < MAX_FILE_OPEN; j++)
       {
@@ -377,6 +377,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
           }
         }
         // Copy data from the data block to the buffer
+        // kprintf("%s on line %d storing byte at address: %x\n", __FILE__, __LINE__, &((char *)buf)[bytes_read]);
 
         ((char *)buf)[bytes_read] = data_block->data[read_bytes];
         // console_putchar(data_block.data[read_bytes]);
@@ -416,7 +417,7 @@ int fs_ioctl(struct io_intf *io, int cmd, void *arg)
 {
   for (int i = 0; i < MAX_FILE_OPEN; i++)
   {
-    file_t *file = &file_desc_tab[i];
+    file_t *file = &(file_desc_tab[i]);
     struct io_intf *file_io = file->io;
     // check if the file_io is the same `io_intf` as the argument provided
     if (io == file_io)
@@ -452,7 +453,8 @@ int fs_getlen(file_t *file, void *arg)
 {
   if (arg != NULL)
   {
-    *(uint64_t *)arg = file->file_size;
+    uint64_t size = file->file_size;
+    *(uint64_t *)arg = size;
   }
   else
   {

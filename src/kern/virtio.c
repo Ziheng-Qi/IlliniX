@@ -81,7 +81,7 @@ int virtio_negotiate_features (
     }
 
     //           All required features are available. Now request the desired ones (which
-    //           should be a superset of the required ones).
+    //           should be a set of the required ones).
 
     for (i = 0; i < VIRTIO_FEATLEN; i++) {
         if (wanted[i] != 0) {
