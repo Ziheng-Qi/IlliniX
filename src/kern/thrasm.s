@@ -131,7 +131,7 @@ _thread_finish_jump:
         .section        .data.stack, "wa", @progbits
         .balign          16
         
-        .equ            IDLE_STACK_SIZE, 1024
+        .equ            IDLE_STACK_SIZE, 4096
 
         .global         _idle_stack_lowest
         .type           _idle_stack_lowest, @object

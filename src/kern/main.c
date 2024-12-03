@@ -27,11 +27,11 @@
 #include "process.h"
 #include "config.h"
 
-
-void main(void) {
-    struct io_intf * initio;
-    struct io_intf * blkio;
-    void * mmio_base;
+void main(void)
+{
+    struct io_intf *initio;
+    struct io_intf *blkio;
+    void *mmio_base;
     int result;
     int i;
 
@@ -45,12 +45,13 @@ void main(void) {
 
     // Attach NS16550a serial devices
 
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < 3; i++)
+    {
         mmio_base = (void*)UART0_IOBASE;
         mmio_base += (UART1_IOBASE-UART0_IOBASE)*i;
         uart_attach(mmio_base, UART0_IRQNO+i);
     }
-    
+
     // Attach virtio devices
 
     for (i = 0; i < 8; i++) {
@@ -65,7 +66,7 @@ void main(void) {
 
     if (result != 0)
         panic("device_open failed");
-    
+
     result = fs_mount(blkio);
 
     debug("Mounted blk0");
@@ -77,7 +78,7 @@ void main(void) {
 
     if (result < 0)
         panic(INIT_PROC ": process image not found");
-    
+
     result = process_exec(initio);
     panic(INIT_PROC ": process_exec failed");
 }
