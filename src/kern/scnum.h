@@ -18,5 +18,8 @@
 #define SYSCALL_EXEC    30
 #define SYSCALL_FORK    31
 
+#define SYSCALL_USLEEP  40
+#define SYSCALL_WAIT    41
+
 
 #endif // _SCNUM_H_

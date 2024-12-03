@@ -15,5 +15,8 @@ extern int _ioctl(int fd, const int cmd, void * arg);
 extern int _devopen(int fd, const char * name, int instno);
 extern int _fsopen(int fd, const char * name);
 extern int _exec(int fd);
+extern int _fork(void);
+extern int _wait(int tid);
+extern int _usleep(unsigned long us);
 
 #endif // _SYSCALL_H_
