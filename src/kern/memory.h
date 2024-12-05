@@ -69,17 +69,18 @@ extern uintptr_t main_mtag;
 extern void memory_init(void);
 extern char memory_initialized;
 
-// uintptr_t memory_space_create(void)
-// Creates a new memory space and makes it the currently active space. Returns a
-// memory space tag (type uintptr_t) that may be used to refer to the memory
-// space. The created memory space contains the same identity mapping of MMIO
-// address space and RAM as the main memory space. This function never fails; if
-// there are not enough physical memory pages to create the new memory space, it
-// panics.
 
 struct pte* walk_pt(struct pte* root, uintptr_t vma, int create);
 
-extern uintptr_t memory_space_create(uint_fast16_t asid);
+// uintptr_t memory_space_clone(void)
+// Creates a new memory space and makes it the currently active space. Returns a
+// memory space tag (type uintptr_t) that may be used to refer to the memory
+// space. The created memory space contains the same identity mapping of MMIO
+// address space and RAM as the main memory space. Copies the mapping of the user space. 
+// This function never fails; if
+// there are not enough physical memory pages to create the new memory space, it
+// panics.
+extern uintptr_t memory_space_clone(uint_fast16_t asid);
 
 // void memory_space_reclaim(uintptr_t mtag)
 // Switches the active memory space to the main memory space and reclaims the

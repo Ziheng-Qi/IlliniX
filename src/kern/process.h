@@ -34,6 +34,7 @@ extern struct process * proctab[];
 
 extern void procmgr_init(void);
 extern int process_exec(struct io_intf * exeio);
+extern int process_fork(const struct trap_frame * parent_tfr);
 
 extern void __attribute__ ((noreturn)) process_exit(void);
 

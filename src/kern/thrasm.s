@@ -105,6 +105,12 @@ _thread_setup:
 
         ret
 
+        .global _thread_finish_fork
+        .type   _thread_finish_fork, @function
+_thread_finish_fork:
+
+        sret
+
         .global _thread_finish_jump
         .type   _thread_finish_jump, @function
 
