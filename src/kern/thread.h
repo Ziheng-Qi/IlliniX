@@ -50,6 +50,8 @@ int running_thread(void);
 
 extern int thread_spawn(const char * name, void (*start)(void *), void * arg);
 
+extern int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr);
+
 // void thread_yield(void)
 // Yields the CPU to another thread and returns when the current thread is next
 // scheduled to run.

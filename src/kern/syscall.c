@@ -387,10 +387,9 @@ int sysfork(struct trap_frame *tfr)
   {
     return -ENOENT;
   }
-  struct process *new_proc = memory_fork(proc);
-
+  return process_fork(tfr);
 }
-*/
+
 /**
  * @brief Handles system calls by dispatching to the appropriate syscall function.
  *

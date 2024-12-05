@@ -166,6 +166,9 @@ static void idle_thread_func(void * arg);
 
 extern struct thread * _thread_swtch(struct thread * resuming_thread);
 
+
+extern void thread_finish_fork (struct thread * child, const struct trap_frame * parent_tfr);
+
 extern void _thread_setup (
     struct thread * thr, void * ksp, void (*start)(void), ...);
 
@@ -234,6 +237,10 @@ int thread_spawn(const char * name, void (*start)(void *), void * arg) {
     intr_restore(saved_intr_state);
     
     return tid;
+}
+
+int thread_fork_to_user (struct process * child_proc, const struct trap_frame * parent_tfr){
+
 }
 
 void thread_exit(void) {

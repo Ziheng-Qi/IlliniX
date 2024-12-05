@@ -130,7 +130,6 @@ int process_exec(struct io_intf *exeio){
  */
 void process_exit(void){
 
-     
     // reclaim memory space
     if(running_thread() != main_proc.tid){
         memory_space_reclaim();
@@ -140,10 +139,7 @@ void process_exit(void){
     struct process *proc = current_process();
     struct io_intf **iotab = proc->iotab;
     for(int i = 0; i < PROCESS_IOMAX; i++){
-        if(iotab[i] != NULL){
-            struct io_intf* io = iotab[i];
-            io->ops->close(io);
-        }
+        ioclose(iotab[i]);
     }
 
     // exit current thread
@@ -167,27 +163,32 @@ void process_exit(void){
  * - If called by the parent process, returns the TID of the child process.
  * - If called by the child process, returns 0.
  */
-int process_fork(){
+int process_fork(const struct trap_frame * parent_tfr){
     int parent_tid = running_thread();
+
+    // Find an unused PID for child
     int child_pid = 0;
     for(;child_pid < NPROC; child_pid++){
         if(proctab[child_pid] == NULL){ // this is an unused pid, child pid is now this
-            continue;
+            break;
+        }
+    }
+    proctab[child_pid] = kmalloc(sizeof(struct process));
+    proctab[child_pid]->id = child_pid;
+    proctab[child_pid]->mtag = memory_space_clone(0);
+    struct io_intf** child_iotab = proctab[child_pid]->iotab;
+    for(int i = 0; i < PROCESS_IOMAX; i++){
+        if(child_iotab[i] != NULL){
+            child_iotab[i]->refcnt ++;
         }
     }
 
-    proctab[child_pid]->id = child_pid;
-    // proctab[child_pid]->mtag = memory_space_clone();
-    // struct io_intf* child_iotab[] = proctab[child_pid]->iotab;
-    // for(int i = 0; i < PROCESS_IOMAX; i++){
-    //     if(child_iotab[i] != NULL){
-    //         child_iotab[i]->ref_cnt ++;
-    //     }
-    // }
+    int child_tid = thread_fork_to_user(proctab[child_pid], parent_tfr);
 
     // parent thread
     if(running_thread() == parent_tid){
-        return proctab[child_pid]->tid;
+        proctab[child_pid]->tid = child_tid;
+        return child_tid;
     }
 
     // child thread
