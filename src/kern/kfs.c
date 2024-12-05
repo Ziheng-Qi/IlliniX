@@ -67,7 +67,8 @@ int fs_open(const char *name, struct io_intf **io)
       }
 
       file_io->ops = &fs_io_ops;
-
+      // initialize the reference count to 1
+      file_io->refcnt = 1;
       // pass the io interface to the caller
       *io = file_io;
       // check if the file has unique io interface

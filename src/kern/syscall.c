@@ -7,6 +7,7 @@
 #include "process.h"
 #include "error.h"
 #include "fs.h"
+#include "timer.h"
 #include "memory.h"
 
 #define PC_ALIGN 4
@@ -349,6 +350,34 @@ static int sysexec(int fd)
   return 0;
 }
 
+static int syswait(int tid)
+{
+  // wait for certain child to exit before returning;
+  // if `tid` is the main thread, wait for any child of current thread to exit
+
+  struct process *proc = current_process();
+  if (proc == NULL)
+  {
+    return -ENOENT;
+  }
+
+  // find the child of the current thread with the given tid
+
+  int pid = proc->id; 
+
+
+  return 0;
+}
+
+static int sysusleep(unsigned long us)
+{
+  // sleep for a certain amount of time
+  // us is the number of microseconds to sleep
+  // return 0 on success, or a negative error code on failure
+
+  return 0;
+}
+
 /*
 int sysfork(struct trap_frame *tfr)
 {
@@ -382,7 +411,9 @@ int sysfork(struct trap_frame *tfr)
  * - SYSCALL_DEVOPEN: Opens a device.
  * - SYSCALL_FSOPEN: Opens a file system.
  * - SYSCALL_EXEC: Executes a new program.
- *
+ * - SYSCALL_FORK: Forks the current process.
+ * - SYSCALL_USLEEP: Sleeps for a specified number of microseconds.
+ * - SYSCALL_WAIT: Waits for a child process to exit.
  * If the syscall number does not match any of the handled cases, the function
  * does nothing.
  */
@@ -424,6 +455,12 @@ void syscall_handler(struct trap_frame *tfr)
     tfr->x[TFR_A0] = sysfork(tfr);
     break;
   */
+  case SYSCALL_WAIT:
+    tfr->x[TFR_A0] = syswait((int)tfr->x[TFR_A0]);
+    break;
+  case SYSCALL_USLEEP:
+    tfr->x[TFR_A0] = sysusleep((unsigned long)tfr->x[TFR_A0]);
+    break;
   default:
     break;
   }
