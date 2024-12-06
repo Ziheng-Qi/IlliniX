@@ -82,6 +82,7 @@ struct io_intf *iolit_init(
         .write = io_lit_write,
         .ctl = io_lit_ioctl};
     lit->io_intf.ops = &ops;
+    lit->io_intf.refcnt = 1;
     lit->buf = buf;
     lit->size = size;
     lit->pos = 0;

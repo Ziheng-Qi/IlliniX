@@ -72,7 +72,6 @@ void procmgr_init(void){
     main_proc.tid = running_thread(); // main thread always have tid 0
     main_proc.mtag = active_memory_space();
     thread_set_process(main_proc.tid, &main_proc);
-
     // just in case
     for (int i = 0; i < PROCESS_IOMAX; i++){
         main_proc.iotab[i] = NULL;
@@ -179,7 +178,7 @@ int process_fork(const struct trap_frame * parent_tfr){
     struct io_intf** child_iotab = proctab[child_pid]->iotab;
     for(int i = 0; i < PROCESS_IOMAX; i++){
         if(child_iotab[i] != NULL){
-            child_iotab[i]->refcnt ++;
+            ioref(child_iotab[i]);
         }
     }
 

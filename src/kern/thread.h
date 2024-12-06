@@ -23,6 +23,7 @@ struct thread_list {
 struct condition {
     const char * name;
 	struct thread_list wait_list;
+    struct lock wait_list_lock;
 };
 
 // EXPORTED GLOBAL VARIABLES

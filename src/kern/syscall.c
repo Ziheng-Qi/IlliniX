@@ -350,23 +350,25 @@ static int sysexec(int fd)
   return 0;
 }
 
+/**
+ * @brief Waits for a thread to finish execution.
+ *
+ * This function waits for a specific thread to complete its execution.
+ * If the thread ID (tid) is 0, it waits for any thread to finish.
+ * Otherwise, it waits for the thread with the specified ID.
+ *
+ * @param tid The thread ID to wait for. If 0, waits for any thread.
+ * @return Returns the result of thread_join or thread_join_any.
+ */
+
 static int syswait(int tid)
 {
-  // wait for certain child to exit before returning;
-  // if `tid` is the main thread, wait for any child of current thread to exit
+  trace("%s(%d)", __func__, tid);
 
-  struct process *proc = current_process();
-  if (proc == NULL)
-  {
-    return -ENOENT;
-  }
-
-  // find the child of the current thread with the given tid
-
-  int pid = proc->id; 
-
-
-  return 0;
+  if (tid == 0)
+    return thread_join_any();
+  else
+    return thread_join(tid);
 }
 
 static int sysusleep(unsigned long us)
@@ -375,6 +377,21 @@ static int sysusleep(unsigned long us)
   // us is the number of microseconds to sleep
   // return 0 on success, or a negative error code on failure
 
+  // Check if the current process is NULL
+  struct process *proc = current_process();
+  if (proc == NULL)
+  {
+    return -ENOENT;
+  }
+  struct thread *thr = running_thread();
+  if (thr == NULL)
+  {
+    return -ENOENT;
+  }
+  // suspend the current thread of us microseconds
+  struct alarm *alarm = kmalloc(sizeof(struct alarm));
+  alarm_init(alarm, "usleep");
+  alarm_sleep_us(alarm, us);
   return 0;
 }
 

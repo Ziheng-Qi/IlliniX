@@ -12,7 +12,7 @@
 #include "io.h"
 #include "thread.h"
 #include <stdint.h>
-
+#include "timer.h"
 // EXPORTED TYPE DEFINITIONS
 //
 

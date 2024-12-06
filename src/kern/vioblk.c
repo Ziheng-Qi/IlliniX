@@ -328,7 +328,7 @@ int vioblk_open(struct io_intf ** ioptr, void * aux) {
 
     //sets necessary flags in vioblk_device (opened?)
     dev->opened = 1;
-
+    dev->io_intf.refcnt = 1;
     *ioptr = &dev->io_intf;
 
     return 0;
