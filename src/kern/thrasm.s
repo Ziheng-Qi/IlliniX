@@ -110,30 +110,8 @@ _thread_setup:
         .global _thread_finish_fork
         .type   _thread_finish_fork, @function
 _thread_finish_fork:
-        # Save parent state in tp
-        sd      s0, 0*8(tp)
-        sd      s1, 1*8(tp)
-        sd      s2, 2*8(tp)
-        sd      s3, 3*8(tp)
-        sd      s4, 4*8(tp)
-        sd      s5, 5*8(tp)
-        sd      s6, 6*8(tp)
-        sd      s7, 7*8(tp)
-        sd      s8, 8*8(tp)
-        sd      s9, 9*8(tp)
-        sd      s10, 10*8(tp)
-        sd      s11, 11*8(tp)
-        sd      ra, 12*8(tp)
-        sd      sp, 13*8(tp)
 
-        # Switch to child thread
-        mv      tp, a0
 
-        # Load parent trap frame into child
-        ld      sp, 13*8(tp)
-        ld      t0, 33*8(a1)     # Load sepc from parent trap frame
-        csrw    sepc, t0        # Set sepc for child
-        csrw    sstatus, 32*8(a1)     # Set sstatus for child 
 
         sret
 
@@ -151,10 +129,9 @@ _thread_finish_jump:
         # pointer and serves as our starting stack pointer.
 
         # TODO: FIXME your code here
-        # la ra, process_exit           # I feel like this is unnecesary since user start.s already has this 
         csrrw zero, sscratch, a0      # set sscratch to the pointer to anchor, which is the kernel stack pointer
         mv sp, a1               # set sp to 0xD000,0000
-        csrrw zero, sepc, a2          # put upc into sepc
+        csrrw zero, sepc, a2    # put upc into sepc
         sret                    # return to user mode
 
 
