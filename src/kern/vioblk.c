@@ -10,6 +10,9 @@
 #include "error.h"
 #include "string.h"
 #include "thread.h"
+#include "lock.h"
+
+struct lock vblk_lk;
 
 #define min(a,b) (a < b ? a : b)
 
@@ -233,6 +236,7 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     dev = kmalloc(sizeof(struct vioblk_device) + blksz);
     memset(dev, 0, sizeof(struct vioblk_device));
 
+    lock_init(&vblk_lk, "vioblk_lock");
 
     //           FIXME Finish initialization of vioblk device here
     dev->regs = regs;
@@ -481,7 +485,9 @@ long vioblk_read (
     }
 
     // now we need to copy data from the buffer we read from the device to the output buffer
+    lock_acquire(&vblk_lk);
     memcpy(buf, dev->blkbuf + pos_in_blk, end_pos - start_pos); // copy to the end of the block
+    lock_release(&vblk_lk);
     dev->pos += end_pos - start_pos;
 
     return end_pos - start_pos;
@@ -538,7 +544,9 @@ long vioblk_write (
     }
 
     // copy date from buf to the block buffer
+    lock_acquire(&vblk_lk);
     memcpy(dev->blkbuf + start_pos, buf, end_pos - start_pos);
+    lock_release(&vblk_lk);
 
     // request a write operation
     vioblk_io_request(dev, dev->bufblkno, VIRTIO_BLK_T_OUT);

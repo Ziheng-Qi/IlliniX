@@ -1,4 +1,5 @@
 #include "fs.h"
+#include "lock.h"
 // boot blocks for the file system
 static boot_block_t* boot_block;
 // io interface for the file system
@@ -7,6 +8,7 @@ static struct io_intf *fs_io = NULL;
 static file_t file_desc_tab[MAX_FILE_OPEN];
 // base address of the file system, basically just zero, everything operates using offsets
 static size_t fs_base = 0;
+struct lock fs_lk;
 
 /**
  * @brief Mounts the filesystem by initializing the file descriptor table and reading the boot block.
@@ -19,6 +21,7 @@ static size_t fs_base = 0;
  */
 int fs_mount(struct io_intf *io)
 {
+  lock_init(&fs_lk, "kfs_lock");
   fs_io = io;
   // Allocate memory for the boot block
   boot_block = kmalloc(sizeof(boot_block_t));

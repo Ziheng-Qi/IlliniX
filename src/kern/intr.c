@@ -96,7 +96,7 @@ void intr_handler(int code, struct trap_frame * tfr) {
         extern_intr_handler();
         break;
     case RISCV_SCAUSE_INTR_EXCODE_STI:
-        timer_intr_handler();
+        timer_intr_handler(tfr);
         break;
     default:
         panic("unhandled interrupt");
