@@ -211,12 +211,11 @@ int thread_spawn(const char * name, void (*start)(void *), void * arg) {
     
     // Allocate a struct thread and a stack
 
-    child = kmalloc(PAGE_SIZE + sizeof(struct thread));
-    child = (void*)child + PAGE_SIZE;
-    memset(child, 0, sizeof(struct thread));
+    child = kmalloc(sizeof(struct thread));
 
     stack_page = memory_alloc_page();
-    stack_anchor = stack_page + PAGE_SIZE - sizeof(struct thread_stack_anchor);
+    stack_anchor = stack_page + PAGE_SIZE;
+    stack_anchor -= 1;
     stack_anchor->thread = child;
     stack_anchor->reserved = 0;
 
@@ -228,12 +227,14 @@ int thread_spawn(const char * name, void (*start)(void *), void * arg) {
     child->parent = CURTHR;
     child->proc = CURTHR->proc;
     child->stack_base = stack_anchor;
-    child->stack_size = PAGE_SIZE - sizeof(struct thread_stack_anchor);
+    child->stack_size = child->stack_base - stack_page;
     set_thread_state(child, THREAD_READY);
 
     saved_intr_state = intr_disable();
     tlinsert(&ready_list, child);
     intr_restore(saved_intr_state);
+
+    _thread_setup(child, child->stack_base, start, arg);
     
     return tid;
 }
@@ -257,14 +258,16 @@ int thread_fork_to_user (struct process * child_proc, const struct trap_frame * 
 
     assert(child_proc != NULL);
 
-    // TODO: here starts cloning the memory space of the parent process
     uint_fast16_t asid = 0;
     nmtag = memory_space_clone(asid);
 
     child_proc->mtag = nmtag;
 
     // initialize the child thread
+    // TODO: here starts initialization of the child thread, for the current case, we might assume one process got only one thread but there are multiple processes allowed
 
+    tid = 0;
+    // thread_spawn has already being refractored to create a thread
 
     csrw_stvec(_trap_entry_from_umode); // set stvec to umode entry point so that it knows sp is not in kernel stack
     csrc_sstatus(RISCV_SSTATUS_SPP);    // so that sret returns to user mode
