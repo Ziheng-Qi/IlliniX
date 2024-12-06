@@ -166,8 +166,7 @@ static void idle_thread_func(void * arg);
 
 extern struct thread * _thread_swtch(struct thread * resuming_thread);
 
-
-extern void thread_finish_fork (struct thread * child, const struct trap_frame * parent_tfr);
+extern void _thread_finish_fork(struct thread *child, const struct trap_frame *parent_tfr);
 
 extern void _thread_setup (
     struct thread * thr, void * ksp, void (*start)(void), ...);
@@ -240,7 +239,37 @@ int thread_spawn(const char * name, void (*start)(void *), void * arg) {
 }
 
 int thread_fork_to_user (struct process * child_proc, const struct trap_frame * parent_tfr){
+    /*This function allocates new memory for the child process and sets up another thread struct. It also initializes
+    a stack anchor to reclaim the thread pointer when coming back from a U mode interrupt. The child's memory
+    space is switched into and the thread is set to be run. Another helper function, with the following signature，
+    should be written in assembly which perforns the context switch*/
+    intr_disable();
+    struct thread_stack_anchor *stack_anchor;
+    void *stack_page;
+    struct thread *child;
+    int saved_intr_state;
+    int tid;
+    uintptr_t nmtag;
 
+    trace("%s() in %s", __func__, CURTHR->name);
+
+    // at this point, child_proc should have been initialized within process_fork
+
+    assert(child_proc != NULL);
+
+    // TODO: here starts cloning the memory space of the parent process
+    uint_fast16_t asid = 0;
+    nmtag = memory_space_clone(asid);
+
+    child_proc->mtag = nmtag;
+
+    // initialize the child thread
+
+
+    csrw_stvec(_trap_entry_from_umode); // set stvec to umode entry point so that it knows sp is not in kernel stack
+    csrc_sstatus(RISCV_SSTATUS_SPP);    // so that sret returns to user mode
+    csrs_sstatus(RISCV_SSTATUS_SPIE);   // enable supervisor mode interrupt so that user process can trigger int
+    _thread_finish_fork(child, parent_tfr);
 }
 
 void thread_exit(void) {

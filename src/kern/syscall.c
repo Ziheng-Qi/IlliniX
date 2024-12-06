@@ -357,6 +357,7 @@ int sysfork(struct trap_frame *tfr)
   {
     return -ENOENT;
   }
+  
   return process_fork(tfr);
 }
 
@@ -417,11 +418,11 @@ void syscall_handler(struct trap_frame *tfr)
   case SYSCALL_EXEC:
     tfr->x[TFR_A0] = sysexec((int)tfr->x[TFR_A0]);
     break;
-  /*
+  
   case SYSCALL_FORK:
     tfr->x[TFR_A0] = sysfork(tfr);
     break;
-  */
+  
   default:
     break;
   }

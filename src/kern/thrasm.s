@@ -105,10 +105,14 @@ _thread_setup:
 
         ret
 
+# void _thread_finish_fork (struct thread * child, const struct trap_frame * parent_tfr);
+# This function will save the parent state, switches to child thread, jumps to user space restoring user state from parent trap frame
         .global _thread_finish_fork
         .type   _thread_finish_fork, @function
 _thread_finish_fork:
-
+        # Save parent state
+        
+         
         sret
 
         .global _thread_finish_jump

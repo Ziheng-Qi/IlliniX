@@ -390,13 +390,11 @@ void memory_space_reclaim(void)
     sfence_vma();
 }
 
-
-
 /**
- * @brief Clones a memory space from the current memory space. Createsa new root level page table.
+ * @brief Clones a memory space from the current memory space. Creates a new root level page table.
  * The first 3 ptes of the new root level table points to the same level 1 pt as the current memory space
- * Creates new level 1 and level 0 page 
- * @return returns to the new mtag
+ * Creates new level 1 and level 0 page
+ * @return returns the new mtag
  * @param asid asid of the new memory space, generally 0
  */
 uintptr_t memory_space_clone(uint_fast16_t asid){
