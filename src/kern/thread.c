@@ -245,6 +245,30 @@ int thread_fork_to_user (struct process * child_proc, const struct trap_frame * 
     a stack anchor to reclaim the thread pointer when coming back from a U mode interrupt. The child's memory
     space is switched into and the thread is set to be run. Another helper function, with the following signature，
     should be written in assembly which perforns the context switch*/
+
+    // several things to consider:
+    // 1. child need to have the same trap frame (in kernel stack) as the parent (including user stack pointer)
+    // Note: We choose to make child have the same kernel stack as the parent by memcpy, so trap frame is also copied
+    // (done below)
+
+    // 2. child need to have the same user stack as the parent (need to copy in memory_space_clone())
+    // (done in memory_space_clone()) 
+
+    // 3. child need to have a different kernel stack pointer
+    // (done in thread_finish_fork()) 
+
+    // 4. need to find a way to deal with the fact that only one sscratch but multiple threads (need to preserve user stack pointer)
+    // because when _thread_swtch, we are in S mode, so the sp in context will be kernel stack pointer
+    // therefore we need a way to store user stack pointer. we can store this also in thread context
+    // but we can also store this in trap frame (trap_entry_from_umode)
+    // (done in trapasm.s) 
+
+    // 5. Context switch to child thread, (save parent context), child context copies parent context except tp and sp
+    // (done in thread_finish_fork())
+
+    // 6. child and parent need to sret with different values.
+    // (done in process_fork())
+
     intr_disable();
 
     trace("%s() in %s", __func__, CURTHR->name);
@@ -283,49 +307,29 @@ int thread_fork_to_user (struct process * child_proc, const struct trap_frame * 
     child->name = "a forked thread";
     child->parent = CURTHR;
     child->proc = child_proc;
-    child->stack_base = child_kernel_stack_base;
+    child->stack_base = child_kernel_stack_base - sizeof(struct thread_stack_anchor);
     child->stack_size = child->stack_base - child_kernel_stack_lowest;
-    set_thread_state(CURTHR, THREAD_READY); // parent thread added to ready list
     set_thread_state(child, THREAD_RUNNING); // run child thread
+
+    set_thread_state(CURTHR, THREAD_READY); // parent thread added to ready list
+    tlinsert(&ready_list, CURTHR);
+
     memory_space_switch(child_proc->mtag); // switch to child memory space
-
-    // csrw_stvec(_trap_entry_from_umode); // set stvec to umode entry point so that it knows sp is not in kernel stack
-    // csrc_sstatus(RISCV_SSTATUS_SPP);    // so that sret returns to user mode
-    // csrs_sstatus(RISCV_SSTATUS_SPIE);   // enable supervisor mode interrupt so that user process can trigger intr
-
-    // several things to consider:
-    // 1. child need to have the same trap frame (in kernel stack) as the parent (including user stack pointer)
-    // Note: We choose to make child have the same kernel stack as the parent by memcpy, so trap frame is also copied
-    // (done below)
-
-    // 2. child need to have the same user stack as the parent (need to copy in memory_space_clone())
-    // (done in memory_space_clone()) 
-
-    // 3. child need to have a different kernel stack pointer
-    // (done in thread_finish_fork()) 
-
-    // 4. need to find a way to deal with the fact that only one sscratch but multiple threads (need to preserve user stack pointer)
-    // because when _thread_swtch, we are in S mode, so the sp in context will be kernel stack pointer
-    // therefore we need a way to store user stack pointer. we can store this also in thread context
-    // but we can also store this in trap frame (trap_entry_from_umode)
-    // (done in trapasm.s) 
-
-    // 5. Context switch to child thread, (save parent context), child context copies parent context except tp and sp
-    // (done in thread_finish_fork())
-
-    // 6. child and parent need to sret with different values.
-    // (done in process_fork())
     
     // get kernel stack pointer
     void* parent_kernel_sp;
+    void* child_kernel_sp;
     asm inline ("mv %0, sp" : "=r" (parent_kernel_sp));
 
     // copy parent kernel stack to child kernel stack
-    uint64_t parent_kstack_used_size = parent_kernel_sp - CURTHR->stack_base;
-    memcpy(child->stack_base, CURTHR->stack_base, parent_kstack_used_size);
+    uint64_t parent_kstack_used_size = CURTHR->stack_base - parent_kernel_sp;
+
+
+    // copy [parent sp ~ parent->stack_base] to [child_kernel_sp - used_stack_size ~ child->stack_base]
+    child_kernel_sp = child->stack_base - parent_kstack_used_size;
+    memcpy(child_kernel_sp, parent_kernel_sp, parent_kstack_used_size);
     
     // performs context switch
-    void* child_kernel_sp = child->stack_base + parent_kstack_used_size;
     _thread_finish_fork(child, child_kernel_sp, parent_tfr);
 
     return child_tid;

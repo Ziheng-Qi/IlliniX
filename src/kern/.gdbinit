@@ -40,4 +40,4 @@ define reconnect_tcp
     target remote tcp::26000
 end
 
-add-symbol-file ../user/bin/init2 0x00000000C0000000
+add-symbol-file ../user/bin/init_fib_fib 0x00000000C0000000
