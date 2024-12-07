@@ -392,16 +392,16 @@ static int sysusleep(unsigned long us)
 }
 
 
-static void sysfork(struct trap_frame *tfr)
+static int sysfork(struct trap_frame *tfr)
 {
   // Fork the current process
   struct process *proc = current_process();
   if (proc == NULL)
   {
-    tfr->x[TFR_A0] = -ENOENT;
+    return -ENOENT;
   }
   
-  process_fork(tfr);
+  return process_fork(tfr);
 }
 
 /**
@@ -465,8 +465,7 @@ void syscall_handler(struct trap_frame *tfr)
     break;
   
   case SYSCALL_FORK:
-    sysfork(tfr);
-    // the return value for sysfork is set in thread_fork_to_user()
+    tfr->x[TFR_A0] = sysfork(tfr);
     break;
 
   case SYSCALL_WAIT:

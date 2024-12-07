@@ -161,12 +161,10 @@ void process_exit(void){
  * and sets up the necessary process structures. The function distinguishes between
  * the parent and child processes and returns the appropriate thread ID (TID).
  *
- * @return This function does not directly returns a value, but it will call thread_fork_to_user() which writes the below to the trap_frame
- * - If called by the parent process, the TID of the child process.
- * - If called by the child process, 0.
+ * @return the TID of the child process.
+ * - If called by the child process, it will write 0 to the child's trap frame's a0 instead of directly returning, because latter will make it write to the parent trap frame
  */
-void process_fork(const struct trap_frame * parent_tfr){
-
+int process_fork(const struct trap_frame * parent_tfr){
     // Find an unused PID for child
     int child_pid = 0;
     for(;child_pid < NPROC; child_pid++){
@@ -194,5 +192,6 @@ void process_fork(const struct trap_frame * parent_tfr){
     int child_tid = thread_fork_to_user(proctab[child_pid], parent_tfr);
     proctab[child_pid]->tid = child_tid;
 
-    // we cannot just return value, we need to store this in parent/child's trap frame
+    // this return value will only save to parent's trap frame, so just child_tid
+    return child_tid;
 }
