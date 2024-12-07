@@ -459,6 +459,8 @@ long vioblk_read (
 {
     struct vioblk_device * const dev = (void *) io - offsetof(struct vioblk_device, io_intf);
 
+    lock_acquire(&vblk_lk);
+
     trace("%s(buf=%p, bufsz=%ld)", __func__, buf, bufsz);
     assert(io != NULL);
     assert(dev->opened); 
@@ -466,6 +468,7 @@ long vioblk_read (
 
     if(dev->pos + bufsz > dev->regs->config.blk.capacity * VIOBLK_SECTOR_SIZE){
         kprintf("read exceeds block device capacity");
+        lock_release(&vblk_lk);
         return 0;
     }
 
@@ -485,11 +488,10 @@ long vioblk_read (
     }
 
     // now we need to copy data from the buffer we read from the device to the output buffer
-    lock_acquire(&vblk_lk);
     memcpy(buf, dev->blkbuf + pos_in_blk, end_pos - start_pos); // copy to the end of the block
-    lock_release(&vblk_lk);
-    dev->pos += end_pos - start_pos;
 
+    dev->pos += end_pos - start_pos;
+    lock_release(&vblk_lk);
     return end_pos - start_pos;
 }
 
@@ -511,12 +513,14 @@ long vioblk_write (
 
     struct vioblk_device * const dev = (void *) io - offsetof(struct vioblk_device, io_intf);
 
+    lock_acquire(&vblk_lk);
     trace("%s(buf=%p, bufsz=%ld)", __func__, buf, n);
     assert(io != NULL);
     assert(dev->opened); 
 
     if(dev->pos + n > dev->regs->config.blk.capacity * VIOBLK_SECTOR_SIZE){
         kprintf("write exceeds block device capacity");
+        lock_release(&vblk_lk);
         return 0;
     }
 
@@ -544,15 +548,14 @@ long vioblk_write (
     }
 
     // copy date from buf to the block buffer
-    lock_acquire(&vblk_lk);
     memcpy(dev->blkbuf + start_pos, buf, end_pos - start_pos);
-    lock_release(&vblk_lk);
 
     // request a write operation
     vioblk_io_request(dev, dev->bufblkno, VIRTIO_BLK_T_OUT);
 
     // write to device is done, update bytes_written to device
     dev->pos += end_pos - start_pos;
+    lock_release(&vblk_lk);
     return end_pos - start_pos;
 }
 

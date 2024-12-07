@@ -288,6 +288,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       // console_printf("n: %d\n", n);
       file->file_position += n;
       // console_printf("file position: %d\n", file->file_position);
+      lock_release(&fs_lk);
       return n;
     }
   }
@@ -351,6 +352,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       data_block_t* data_block = kmalloc(sizeof(data_block_t));
       if (read_blocks == sizeof(file_inode->data_block_num) / sizeof(file_inode->data_block_num[0]))
       {
+        lock_release(&fs_lk);
         return -EINVAL;
       }
       // check if the file_position is greater than the file size
@@ -394,6 +396,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
           if (read_blocks == MAX_INODES)
           {
             // If the file is full, return an error
+            lock_release(&fs_lk);
             return -EINVAL;
           }
           // Seek to the next data block
@@ -424,10 +427,13 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       // Update the file position after reading
       // console_printf("added %d bytes to the buffer\n", bytes_read);
       file->file_position += n;
+      lock_release(&fs_lk);
+
       return n; // Return the number of bytes read
     }
   }
   // If the file descriptor is not found, return an error
+  lock_release(&fs_lk);
   return -ENOENT;
 }
 
