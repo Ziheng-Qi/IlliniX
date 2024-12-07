@@ -391,8 +391,8 @@ static int sysusleep(unsigned long us)
   return 0;
 }
 
-/*
-int sysfork(struct trap_frame *tfr)
+
+static int sysfork(struct trap_frame *tfr)
 {
   // Fork the current process
   struct process *proc = current_process();
@@ -403,7 +403,7 @@ int sysfork(struct trap_frame *tfr)
   
   return process_fork(tfr);
 }
-*/
+
 /**
  * @brief Handles system calls by dispatching to the appropriate syscall function.
  *

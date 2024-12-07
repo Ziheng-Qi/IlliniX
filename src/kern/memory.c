@@ -398,7 +398,7 @@ void memory_space_reclaim(void)
  * @param asid asid of the new memory space, generally 0
  */
 uintptr_t memory_space_clone(uint_fast16_t asid){
-    uintptr_t new_root_ptr = memory_alloc_page();
+    void * new_root_ptr = memory_alloc_page();
     uintptr_t new_mtag =   ((uintptr_t)RISCV_SATP_MODE_Sv39 << RISCV_SATP_MODE_shift) |
         pageptr_to_pagenum(new_root_ptr);
     
@@ -455,8 +455,8 @@ uintptr_t memory_space_clone(uint_fast16_t asid){
             uintptr_t new_ppn = walk_pt(new_pt2, vma_to_map, 0)->ppn;
             uintptr_t curr_ppn = walk_pt(curr_pt2, vma_to_map, 0)->ppn;
 
-            uintptr_t new_pp = pagenum_to_pageptr(new_ppn);
-            uintptr_t curr_pp = pagenum_to_pageptr(curr_ppn);  
+            void * new_pp = pagenum_to_pageptr(new_ppn);
+            void * curr_pp = pagenum_to_pageptr(curr_ppn);  
             memcpy(new_pp, curr_pp, PAGE_SIZE);
         } 
 

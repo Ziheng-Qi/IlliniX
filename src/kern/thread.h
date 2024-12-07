@@ -85,6 +85,8 @@ extern struct process * thread_process(int tid);
 
 extern void thread_set_process(int tid, struct process * proc);
 
+extern int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr);
+
 // Returns the name of a thread.
 
 extern const char * thread_name(int tid);
