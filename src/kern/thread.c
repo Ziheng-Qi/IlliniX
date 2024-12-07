@@ -282,6 +282,7 @@ int thread_fork_to_user (struct process * child_proc, const struct trap_frame * 
     
     // find a free thread slot.
     int child_tid = 0;
+    int parent_tid = running_thread();
     while(child_tid < NTHR){
         if(thrtab[child_tid] == NULL){
             break;
@@ -332,6 +333,17 @@ int thread_fork_to_user (struct process * child_proc, const struct trap_frame * 
     // performs context switch
     _thread_finish_fork(child, child_kernel_sp, parent_tfr);
 
+    // parent thread
+    if(running_thread() == parent_tid){
+        // if we are in parent thread, then we need to store child_tid into a0 of parent trap frame
+        struct trap_frame * p_tfr = (struct trap_frame *)(thrtab[parent_tid]->stack_base) - 1;
+        p_tfr->x[TFR_A0] = child_tid;
+        return child_tid;
+    }
+
+    // if we are in child thread, then we need to store 0 into the a0 of trap frame
+    struct trap_frame * c_tfr = (struct trap_frame *)(child->stack_base) - 1;
+    c_tfr->x[TFR_A0] = 0;    
     return child_tid;
 }
 
