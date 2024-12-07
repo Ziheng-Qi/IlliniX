@@ -166,8 +166,6 @@ void process_exit(void){
  * - If called by the child process, returns 0.
  */
 int process_fork(const struct trap_frame * parent_tfr){
-    int parent_tid = running_thread();
-
     // Find an unused PID for child
     int child_pid = 0;
     for(;child_pid < NPROC; child_pid++){
