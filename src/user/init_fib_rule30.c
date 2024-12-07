@@ -1,5 +1,6 @@
 #include "syscall.h"
 #include "string.h"
+#include "stdlib.h"
 
 void main(void) {
     int result;
