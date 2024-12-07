@@ -1,5 +1,6 @@
 #include "syscall.h"
 #include "string.h"
+#include "stdlib.h"
 
 void main(void) {
     int result;
@@ -10,7 +11,10 @@ void main(void) {
         result = _devopen(0, "ser", 1);
 
         if (result < 0) {
-            _msgout("_devopen failed");
+            _msgout("_devopen failed ser1");
+            char err[10];
+            itoa(result, err, 10);
+            _msgout(err);
             _exit();
         }
 
@@ -19,7 +23,7 @@ void main(void) {
         result = _fsopen(1, "trek");
 
         if (result < 0) {
-            _msgout("_fsopen failed");
+            _msgout("_fsopen failed trek");
             _exit();
         }
 
@@ -33,7 +37,7 @@ void main(void) {
         result = _devopen(0, "ser", 2);
 
         if (result < 0) {
-            _msgout("_devopen failed");
+            _msgout("_devopen failed ser2");
             _exit();
         }
 
@@ -42,7 +46,7 @@ void main(void) {
         result = _fsopen(1, "rule30");
 
         if (result < 0) {
-            _msgout("_fsopen failed");
+            _msgout("_fsopen failed rule30");
             _exit();
         }
 

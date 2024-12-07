@@ -6,7 +6,10 @@ cd ../user
 make
 cp -r bin ../util
 cd ../util
-./mkfs kfs.raw ./bin/init0 ./bin/init1 ./bin/init2 ./bin/trek ./bin/init3 ./bin/init4 ./bin/helloworld.txt 
+$FILES_INBIN = $(find ./bin -type f -name "*" | xargs) 
+echo $FILES_INBIN
+./mkfs kfs.raw ./bin/init0 ./bin/init1 ./bin/init2 ./bin/trek ./bin/init3 ./bin/init4 ./bin/helloworld.txt ./bin/fib ./bin/init_fib_fib ./bin/init_trek_rule30 ./bin/init_fib_rule30 ./bin/rule30
+# ./mkfs kfs.raw $FILES_INBIN
 mv kfs.raw ../kern
 cd ../kern
 echo "

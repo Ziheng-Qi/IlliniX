@@ -3,7 +3,7 @@
 
 void main(void) {
     int result;
-
+    _msgout("Hello, world!");
     if (_fork()) {
         // exec fibonacci
 
