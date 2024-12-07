@@ -4,9 +4,15 @@
 
 void main(void) {
     int result;
-
+    int enter = 0;
     if (_fork()) {
 #if 1
+        enter++;
+        char str[10];
+        itoa(enter, str, 10);
+        _msgout("entered for ");
+        _msgout(str);
+
         // Open ser1 device as fd=0
         result = _devopen(0, "ser", 1);
 
