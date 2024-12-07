@@ -383,11 +383,7 @@ static int sysusleep(unsigned long us)
   {
     return -ENOENT;
   }
-  struct thread *thr = running_thread();
-  if (thr == NULL)
-  {
-    return -ENOENT;
-  }
+
   // suspend the current thread of us microseconds
   struct alarm *alarm = kmalloc(sizeof(struct alarm));
   alarm_init(alarm, "usleep");
@@ -406,7 +402,7 @@ int sysfork(struct trap_frame *tfr)
   }
   return process_fork(tfr);
 }
-
+*/
 /**
  * @brief Handles system calls by dispatching to the appropriate syscall function.
  *
