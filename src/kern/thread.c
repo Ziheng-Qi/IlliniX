@@ -332,6 +332,12 @@ int thread_fork_to_user (struct process * child_proc, const struct trap_frame * 
     // performs context switch
     _thread_finish_fork(child, child_kernel_sp, parent_tfr);
 
+    // child thread
+    if(running_thread() == child_tid){
+        // if we are in child thread, then we need to store 0 into the a0 of child trap frame
+        struct trap_frame * c_tfr = (struct trap_frame *)(child->stack_base) - 1;
+        c_tfr->x[TFR_A0] = 0;    
+    }
     return child_tid;
 }
 

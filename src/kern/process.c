@@ -194,12 +194,6 @@ int process_fork(const struct trap_frame * parent_tfr){
     // now every thing with the new process is initiliazed except the thread
     int child_tid = thread_fork_to_user(proctab[child_pid], parent_tfr);
 
-    // parent thread
-    if(running_thread() == parent_tid){
-        proctab[child_pid]->tid = child_tid;
-        return child_tid;
-    }
-
-    // child thread
-    return 0;
+    // this return value will only save to parent's trap frame, so just child_tid
+    return child_tid;
 }
