@@ -107,13 +107,35 @@ _thread_setup:
 
 # void _thread_finish_fork (struct thread * child, const struct trap_frame * parent_tfr);
 # This function will save the parent state, switches to child thread, jumps to user space restoring user state from parent trap frame
+# a0: pointer to child thread
+# a1: child kernel stack pointer
+# a2: pointer to parent trap frame
+
         .global _thread_finish_fork
         .type   _thread_finish_fork, @function
 _thread_finish_fork:
+        # currently in the parent thread, we want to switch to child thread
+        sd      s0, 0*8(tp)
+        sd      s1, 1*8(tp)
+        sd      s2, 2*8(tp)
+        sd      s3, 3*8(tp)
+        sd      s4, 4*8(tp)
+        sd      s5, 5*8(tp)
+        sd      s6, 6*8(tp)
+        sd      s7, 7*8(tp)
+        sd      s8, 8*8(tp)
+        sd      s9, 9*8(tp)
+        sd      s10, 10*8(tp)
+        sd      s11, 11*8(tp)
+        sd      ra, 12*8(tp)
+        sd      sp, 13*8(tp)
 
-
-
-        sret
+        mv tp, a0 # switch to child thread
+        mv sp, a1 # update child kernel stack pointer
+        # s register values copy parent thread
+        # ra is the same
+       
+        ret
 
         .global _thread_finish_jump
         .type   _thread_finish_jump, @function
@@ -129,7 +151,7 @@ _thread_finish_jump:
         # pointer and serves as our starting stack pointer.
 
         # TODO: FIXME your code here
-        csrrw zero, sscratch, a0      # set sscratch to the pointer to anchor, which is the kernel stack pointer
+        csrw sscratch, a0      # set sscratch to the pointer to anchor, which is the kernel stack pointer
         mv sp, a1               # set sp to 0xD000,0000
         csrrw zero, sepc, a2    # put upc into sepc
         sret                    # return to user mode

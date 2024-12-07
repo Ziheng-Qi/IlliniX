@@ -158,8 +158,8 @@ _trap_entry_from_umode:
         csrrw   sp, sscratch, sp
         addi    sp, sp, -34*8           # allocate space for trap frame
         sd      t6, 31*8(sp)            # save t6 (x31) in trap frame
-        addi    t6, sp, 34*8            # save original sp
-        sd      t6, 2*8(sp)             #
+        csrr    t6, sscratch            # t6 store user stack pointer
+        sd      t6, 2*8(sp)             # store into sp location of trap_frame
         
         
         # We're now in S mode, so update our trap handler address to
@@ -188,10 +188,12 @@ _trap_entry_from_umode:
         la     t6, _trap_entry_from_umode
         csrw   stvec, t6
 
-        ld      t6, 31*8(sp)
-        ld      sp, 2*8(sp)
-
-        csrrw   sp, sscratch, sp 
+        ld      t6, 2*8(sp)             # load user stack pointer from trap frame
+        csrw    sscratch, t6            # write user stack pointer to sscratch
+        ld      t6, 31*8(sp)            # load t6 from trap frame
+        addi    sp, sp, 34*8            # originally we load from trap frame but now we need to manually add
+        
+        csrrw   sp, sscratch, sp        # now sscratch contains the user stack pointer, we simply swap
 
         sret
         # Execution of trap entry continues here. Jump to handlers.

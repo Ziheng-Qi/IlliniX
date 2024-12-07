@@ -175,16 +175,23 @@ int process_fork(const struct trap_frame * parent_tfr){
             break;
         }
     }
+
+    // create new process struct
     proctab[child_pid] = kmalloc(sizeof(struct process));
     proctab[child_pid]->id = child_pid;
     proctab[child_pid]->mtag = memory_space_clone(0);
+
+    // copies the io_intf pointers from parent's iotab to child's iotab 
+    // and increment the reference count
     struct io_intf** child_iotab = proctab[child_pid]->iotab;
     for(int i = 0; i < PROCESS_IOMAX; i++){
         if(child_iotab[i] != NULL){
+            child_iotab[i] = current_process()->iotab[i]; 
             ioref(child_iotab[i]);
         }
     }
-
+    
+    // now every thing with the new process is initiliazed except the thread
     int child_tid = thread_fork_to_user(proctab[child_pid], parent_tfr);
 
     // parent thread
