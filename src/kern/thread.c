@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "lock.h"
 #include "halt.h"
 #include "console.h"
 #include "heap.h"
@@ -411,7 +412,6 @@ void condition_wait(struct condition * cond) {
     saved_intr_state = intr_disable();
     tlinsert(&cond->wait_list, CURTHR);
     intr_restore(saved_intr_state);
-
     suspend_self();
 }
 

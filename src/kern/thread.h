@@ -22,7 +22,7 @@ struct thread_list {
 
 struct condition {
     const char * name;
-	struct thread_list wait_list;
+    struct thread_list wait_list;
 };
 
 // EXPORTED GLOBAL VARIABLES
@@ -50,7 +50,7 @@ int running_thread(void);
 
 extern int thread_spawn(const char * name, void (*start)(void *), void * arg);
 
-extern int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr);
+// extern int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr);
 
 // void thread_yield(void)
 // Yields the CPU to another thread and returns when the current thread is next

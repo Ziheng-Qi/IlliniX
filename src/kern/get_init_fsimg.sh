@@ -3,7 +3,6 @@ cd ../util
 make clean
 make
 cd ../user
-make clean
 make
 cp -r bin ../util
 cd ../util

@@ -7,6 +7,7 @@
 #include "process.h"
 #include "error.h"
 #include "fs.h"
+#include "timer.h"
 #include "memory.h"
 
 #define PC_ALIGN 4
@@ -349,6 +350,48 @@ static int sysexec(int fd)
   return 0;
 }
 
+/**
+ * @brief Waits for a thread to finish execution.
+ *
+ * This function waits for a specific thread to complete its execution.
+ * If the thread ID (tid) is 0, it waits for any thread to finish.
+ * Otherwise, it waits for the thread with the specified ID.
+ *
+ * @param tid The thread ID to wait for. If 0, waits for any thread.
+ * @return Returns the result of thread_join or thread_join_any.
+ */
+
+static int syswait(int tid)
+{
+  trace("%s(%d)", __func__, tid);
+
+  if (tid == 0)
+    return thread_join_any();
+  else
+    return thread_join(tid);
+}
+
+static int sysusleep(unsigned long us)
+{
+  // sleep for a certain amount of time
+  // us is the number of microseconds to sleep
+  // return 0 on success, or a negative error code on failure
+
+  // Check if the current process is NULL
+  struct process *proc = current_process();
+  if (proc == NULL)
+  {
+    return -ENOENT;
+  }
+
+  // suspend the current thread of us microseconds
+  struct alarm *alarm = kmalloc(sizeof(struct alarm));
+  alarm_init(alarm, "usleep");
+  alarm_sleep_us(alarm, us);
+  return 0;
+}
+
+/*
 int sysfork(struct trap_frame *tfr)
 {
   // Fork the current process
@@ -360,7 +403,7 @@ int sysfork(struct trap_frame *tfr)
   
   return process_fork(tfr);
 }
-
+*/
 /**
  * @brief Handles system calls by dispatching to the appropriate syscall function.
  *
@@ -381,7 +424,9 @@ int sysfork(struct trap_frame *tfr)
  * - SYSCALL_DEVOPEN: Opens a device.
  * - SYSCALL_FSOPEN: Opens a file system.
  * - SYSCALL_EXEC: Executes a new program.
- *
+ * - SYSCALL_FORK: Forks the current process.
+ * - SYSCALL_USLEEP: Sleeps for a specified number of microseconds.
+ * - SYSCALL_WAIT: Waits for a child process to exit.
  * If the syscall number does not match any of the handled cases, the function
  * does nothing.
  */
@@ -422,7 +467,13 @@ void syscall_handler(struct trap_frame *tfr)
   case SYSCALL_FORK:
     tfr->x[TFR_A0] = sysfork(tfr);
     break;
-  
+
+  case SYSCALL_WAIT:
+    tfr->x[TFR_A0] = syswait((int)tfr->x[TFR_A0]);
+    break;
+  case SYSCALL_USLEEP:
+    tfr->x[TFR_A0] = sysusleep((unsigned long)tfr->x[TFR_A0]);
+    break;
   default:
     break;
   }

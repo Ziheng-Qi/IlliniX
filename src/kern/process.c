@@ -138,7 +138,10 @@ void process_exit(void){
     struct process *proc = current_process();
     struct io_intf **iotab = proc->iotab;
     for(int i = 0; i < PROCESS_IOMAX; i++){
-        ioclose(iotab[i]);
+        if (iotab[i] != NULL)
+        {
+            ioclose(iotab[i]);
+        }
     }
 
     // exit current thread

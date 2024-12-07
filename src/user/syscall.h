@@ -3,7 +3,7 @@
 
 #ifndef _SYSCALL_H_
 #define _SYSCALL_H_
-
+#include "io.h"
 #include <stddef.h>
 
 extern void __attribute__ ((noreturn)) _exit(void);
