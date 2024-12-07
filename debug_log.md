@@ -107,7 +107,13 @@ Encountered a bug which while invoking `thread_exit` within `thread.c` after `pr
 
 Solution:
 
-It turns out the `tp` was incorrect at `_trap_entry_from_umode` in `trap.c`, the `tp` should be the `thread_t` of the kernel, not the `thread_t` of the current process.
+It turns out the `tp` was incorrect at `_trap_entry_from_umode` in `trap.c`, the `tp` should be the `thread_t` of the kernel, not the `thread_t` of the current process. We get the location of `thread_stack_anchor` from CSR `sscratch` and we should load from this address to get the desired thread structure.
+
+```assembly
+ld     tp, 34*8(sp) # tp should have the thread structure by now
+```
+
+
 
 #### November 25, 2024
 
