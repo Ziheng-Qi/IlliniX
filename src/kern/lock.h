@@ -34,8 +34,22 @@ static inline void lock_init(struct lock * lk, const char * name) {
     lk->tid = -1;
 }
 
+/**
+ * @brief If lock is locked (held by another thread), current thread is suspended 
+ * until it succeeds in acquiring the lock. If lock is in unlocked state, 
+ * change state to locked
+ * @param lk the pointer to the lock
+ */
 static inline void lock_acquire(struct lock * lk) {
     // TODO: FIXME implement this
+    trace("%s(<%s:%p>", __func__, lk->cond.name, lk);
+    while (lk->tid != -1) {
+        condition_wait(&lk->cond);
+    }
+    lk->tid = running_thread();
+    debug("Thread <%s:%d> acquired lock <%s:%p>",
+        thread_name(running_thread()), running_thread(),
+        lk->cond.name, lk);
 }
 
 static inline void lock_release(struct lock * lk) {

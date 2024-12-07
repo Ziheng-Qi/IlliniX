@@ -5,6 +5,7 @@
 #include "error.h"
 
 #include <stddef.h>
+#include <string.h>
 #include <stdint.h>
 
 //           INTERNAL TYPE DEFINITIONS
@@ -63,6 +64,11 @@ long iowrite(struct io_intf * io, const void * buf, unsigned long n) {
 
     return acc;
 }
+
+long io_lit_read(struct io_intf *io, void *buf, unsigned long bufsz);
+void lit_io_close(struct io_intf *io);
+long io_lit_write(struct io_intf *io, const void *buf, unsigned long n);
+int io_lit_ioctl(struct io_intf *io, int cmd, void *arg);
 
 //            Initialize an io_lit. This function should be called with an io_lit, a buffer, and the size of the device.
 //            It should set up all fields within the io_lit struct so that I/O operations can be performed on the io_lit
