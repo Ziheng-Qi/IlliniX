@@ -10,7 +10,7 @@ void main(void) {
         enter++;
         char str[10];
         itoa(enter, str, 10);
-        _msgout("entered for ");
+        _msgout("entered fork");
         _msgout(str);
 
         // Open ser1 device as fd=0
@@ -27,6 +27,7 @@ void main(void) {
         // exec trek
 
         result = _fsopen(1, "trek");
+        _msgout("running trek");
 
         if (result < 0) {
             _msgout("_fsopen failed trek");
@@ -41,7 +42,7 @@ void main(void) {
 #if 1
         // Open ser1 device as fd=0
         result = _devopen(0, "ser", 2);
-        _msgout("ser2 opened");
+        _msgout("running rule30: ser2 opened\n");
         if (result < 0) {
             _msgout("_devopen failed ser2");
             _exit();
