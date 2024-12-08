@@ -162,7 +162,7 @@ void process_exit(void){
  * the parent and child processes and returns the appropriate thread ID (TID).
  *
  * @return the TID of the child process.
- * - If called by the child process, it will write 0 to the child's trap frame's a0 instead of directly returning, because latter will make it write to the parent trap frame
+ * - If called by the child process, it will write 0 to the child's trap frame's a0 instead of directly returning, because the latter will make it write to the parent trap frame
  */
 int process_fork(const struct trap_frame * parent_tfr){
     // Find an unused PID for child

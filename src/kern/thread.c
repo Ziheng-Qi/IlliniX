@@ -246,22 +246,25 @@ int thread_spawn(const char * name, void (*start)(void *), void * arg) {
  * This function allocates new memory for the child process and sets up another thread struct.
  * It also initializes a stack anchor to reclaim the thread pointer when coming back from a U mode interrupt.
  * The child's memory space is switched into and the thread is set to be run.
- * Another helper function, with the following signature, should be written in assembly which performs the context switch.
+ * 
  *
  * @param child_proc Pointer to the child process structure.
  * @param parent_tfr Pointer to the trap frame of the parent process.
  * @return The thread ID of the newly created child thread.
  *
- * @note Several things to consider:
- * 1. The child needs to have the same trap frame (in kernel stack) as the parent (including user stack pointer).
+ * @note Several things that this function (and other functions that works with it) assures:
+ * 1. The child has the same trap frame (in kernel stack) as the parent (including user stack pointer).
  *    We choose to make the child have the same kernel stack as the parent by memcpy, so the trap frame is also copied.
- * 2. The child needs to have the same user stack as the parent (handled in memory_space_clone()).
- * 3. The child needs to have a different kernel stack pointer (handled in thread_finish_fork()).
+ * 2. The child has the same user stack as the parent (handled in memory_space_clone()).
+ * 3. The child has a different kernel stack pointer (handled in thread_finish_fork()).
  * 4. Need to handle the fact that there is only one sscratch but multiple threads (need to preserve user stack pointer).
- *    This is stored in the trap frame (trap_entry_from_umode).
+ *    This is stored in the trap frame (handled in trap_entry_from_umode).
  * 5. Context switch to the child thread (save parent context), child context copies parent context except tp and sp
  *    (handled in thread_finish_fork()).
- * 6. The child and parent need to sret with different values (handled in process_fork()).
+ * 6. The child and parent need to sret with different values
+ *    For parent we can just return, sysfork will store the return value into trap frame and then restored before sret
+ *    For child we need to manually put this into the trap frame of the child, done in this function
+ *     
  */
 int thread_fork_to_user (struct process * child_proc, const struct trap_frame * parent_tfr){
     /*This function allocates new memory for the child process and sets up another thread struct. It also initializes

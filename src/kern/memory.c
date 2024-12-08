@@ -392,8 +392,8 @@ void memory_space_reclaim(void)
 
 /**
  * @brief Clones a memory space from the current memory space. Creates a new root level page table.
- * The first 3 ptes of the new root level table points to the same level 1 pt as the current memory space
- * Creates new level 1 and level 0 page
+ * The first 3 ptes of the new root level table points to the same level 1 pt as the current memory space (shallow copy)
+ * For the fourth Gigapage (user space), creates new level 1 and level 0 page and copies the contents of the pages to the cloned memory space (deep copy)
  * @return returns the new mtag
  * @param asid asid of the new memory space, generally 0
  */

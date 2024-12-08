@@ -105,12 +105,18 @@ _thread_setup:
 
         ret
 
-# void _thread_finish_fork (struct thread * child, const struct trap_frame * parent_tfr);
+# void _thread_finish_fork (struct thread * child, void * child_ksp, const struct trap_frame * parent_tfr);
 # This function will save the parent state, switches to child thread, jumps to user space restoring user state from parent trap frame
+# Child will have the same context as the parent except a different tp and a different sp
+
+# Inputs: 
 # a0: pointer to child thread
 # a1: child kernel stack pointer
 # a2: pointer to parent trap frame
-
+#
+# Outputs: 
+# None
+# 
         .global _thread_finish_fork
         .type   _thread_finish_fork, @function
 _thread_finish_fork:
