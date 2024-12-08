@@ -371,6 +371,15 @@ static int syswait(int tid)
     return thread_join(tid);
 }
 
+/**
+ * @brief Suspends the execution of the current thread for a specified number of microseconds.
+ *
+ * This function puts the current thread to sleep for the specified duration in microseconds.
+ * It returns 0 on success, or a negative error code on failure.
+ *
+ * @param us The number of microseconds to sleep.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int sysusleep(unsigned long us)
 {
   // sleep for a certain amount of time
@@ -391,7 +400,16 @@ static int sysusleep(unsigned long us)
   return 0;
 }
 
-
+/**
+ * @brief Forks the current process.
+ *
+ * This function creates a new process by duplicating the current process.
+ * It retrieves the current process and checks if it is valid. If the current
+ * process is valid, it proceeds to fork the process using the provided trap frame.
+ *
+ * @param tfr Pointer to the trap frame containing the CPU state at the time of the fork.
+ * @return On success, returns the process ID of the child process. On failure, returns -ENOENT if the current process is NULL.
+ */
 static int sysfork(struct trap_frame *tfr)
 {
   // Fork the current process

@@ -90,6 +90,26 @@ void intr_disable_irq(int irqno) {
 // Called from trapasm.s to handle an interrupt. Dispataches to
 // timer_intr_handler and extern_intr_handler.
 
+/**
+ * @brief Interrupt handler function.
+ *
+ * This function handles different types of interrupts based on the provided
+ * interrupt code. It delegates the handling to specific functions for each
+ * interrupt type.
+ *
+ * @param code The interrupt code indicating the type of interrupt.
+ * @param tfr Pointer to the trap frame structure containing the state of the
+ *            processor at the time of the interrupt.
+ *
+ * The function handles the following interrupt codes:
+ * - RISCV_SCAUSE_INTR_EXCODE_SEI: Calls the external interrupt handler.
+ * - RISCV_SCAUSE_INTR_EXCODE_STI: Calls the timer interrupt handler with the
+ *   provided trap frame.
+ * - Default: Triggers a panic indicating an unhandled interrupt.
+ *
+ * If the interrupt occurred while running in user mode, the function yields
+ * the current thread. Giving us a preemptive multitasking system.
+ */
 void intr_handler(int code, struct trap_frame * tfr) {
     switch (code) {
     case RISCV_SCAUSE_INTR_EXCODE_SEI:
