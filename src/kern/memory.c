@@ -420,7 +420,7 @@ uintptr_t memory_space_clone(uint_fast16_t asid){
     }
 
     // allocate a page for the level 1 page table corresponding to user space
-    void * page = memory_alloc_page(); 
+    void * page = memory_alloc_page();
     new_pt2[3] = ptab_pte((struct pte *) page, 0);
 
     // the 0, 1, and 2nd pte mappings of the root level table can point to the same lower level page, so we only need to copy the user part
