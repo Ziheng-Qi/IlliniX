@@ -52,6 +52,7 @@ int fs_mount(struct io_intf *io)
 int fs_open(const char *name, struct io_intf **io)
 {
   // search the file in the directory
+
   static const struct io_ops fs_io_ops = {
       .close = fs_close,
       .read = fs_read,
@@ -82,6 +83,7 @@ int fs_open(const char *name, struct io_intf **io)
       uint64_t position = fs_base + BLOCK_SIZE + boot_block->dir_entries[i].inode * BLOCK_SIZE;
       // console_printf("Seeking to position: %d\n", position);
       uint64_t file_position = 0;
+      lock_acquire(&fs_lk);
       ioseek(fs_io, position);
       inode_t* file_inode = kmalloc(BLOCK_SIZE);
       ioread_full(fs_io, file_inode, BLOCK_SIZE);
@@ -96,12 +98,14 @@ int fs_open(const char *name, struct io_intf **io)
           file_desc_tab[j].inode_num = inode_num;
           file_desc_tab[j].flag = flag;
           file_desc_tab[j].io = file_io;
+          lock_release(&fs_lk);
           return 0;
         }
       }
     }
   }
   // console_printf("File not found\n");
+  lock_release(&fs_lk);
   return -ENOENT;
 }
 
@@ -459,6 +463,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
 
 int fs_ioctl(struct io_intf *io, int cmd, void *arg)
 {
+  lock_acquire(&fs_lk);
   for (int i = 0; i < MAX_FILE_OPEN; i++)
   {
     file_t *file = &(file_desc_tab[i]);
@@ -469,18 +474,24 @@ int fs_ioctl(struct io_intf *io, int cmd, void *arg)
       switch (cmd)
       {
       case IOCTL_GETLEN:
+        lock_release(&fs_lk);
         return fs_getlen(file, arg);
       case IOCTL_SETPOS:
+        lock_release(&fs_lk);
         return fs_setpos(file, arg);
       case IOCTL_GETPOS:
+        lock_release(&fs_lk);
         return fs_getpos(file, arg);
       case IOCTL_GETBLKSZ:
+        lock_release(&fs_lk);
         return fs_getblksz(file, arg);
       default:
+        lock_release(&fs_lk);
         return -EINVAL;
       }
     }
   }
+  lock_release(&fs_lk);
   return -ENOTSUP;
 }
 

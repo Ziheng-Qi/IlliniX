@@ -315,7 +315,6 @@ int thread_fork_to_user (struct process * child_proc, const struct trap_frame * 
     tlinsert(&ready_list, CURTHR);
 
     memory_space_switch(child_proc->mtag); // switch to child memory space
-    
     // get kernel stack pointer
     void* parent_kernel_sp;
     void* child_kernel_sp;
