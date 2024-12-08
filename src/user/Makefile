@@ -22,6 +22,7 @@ ALL_TARGETS = \
 	bin/init2 \
 	bin/init3 \
 	bin/init4 \
+	bin/lock_test \
 	bin/init_trek_rule30 \
 	bin/init_fib_rule30 \
 	bin/init_fib_fib \
@@ -52,6 +53,9 @@ bin/init3: $(ULIB_OBJS) init3.o
 	$(LD) -T user.ld -o $@ $^
 
 bin/init4: $(ULIB_OBJS) init4.o
+	$(LD) -T user.ld -o $@ $^
+
+bin/lock_test: $(ULIB_OBJS) lock_test.o
 	$(LD) -T user.ld -o $@ $^
 
 # bin/init5: $(ULIB_OBJS) init5.o
