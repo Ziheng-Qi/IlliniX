@@ -10,7 +10,8 @@
 #endif
 
 // #define INIT_PROC "init_trek_rule30" // name of init process executable
-#define INIT_PROC "init2"
+#define INIT_PROC "shell"
+// #define INIT_PROC "init2"
 #include "console.h"
 #include "thread.h"
 #include "device.h"
@@ -78,7 +79,7 @@ void main(void)
 
     if (result < 0)
         panic(INIT_PROC ": process image not found");
-
+    kprintf("Running %s\n", INIT_PROC);
     result = process_exec(initio);
     panic(INIT_PROC ": process_exec failed");
 }

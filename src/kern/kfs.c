@@ -53,6 +53,7 @@ int fs_open(const char *name, struct io_intf **io)
 {
   // search the file in the directory
 
+  lock_acquire(&fs_lk);
   static const struct io_ops fs_io_ops = {
       .close = fs_close,
       .read = fs_read,
@@ -83,7 +84,6 @@ int fs_open(const char *name, struct io_intf **io)
       uint64_t position = fs_base + BLOCK_SIZE + boot_block->dir_entries[i].inode * BLOCK_SIZE;
       // console_printf("Seeking to position: %d\n", position);
       uint64_t file_position = 0;
-      lock_acquire(&fs_lk);
       ioseek(fs_io, position);
       inode_t* file_inode = kmalloc(BLOCK_SIZE);
       ioread_full(fs_io, file_inode, BLOCK_SIZE);

@@ -5,7 +5,9 @@
 void main(void) {
     int result;
     int enter = 0;
-    if (_fork()) {
+    int tid = _fork();
+    if (tid)
+    {
 #if 1
         enter++;
         char str[10];
@@ -38,7 +40,9 @@ void main(void) {
 #else
         _wait(0);
 #endif
-    } else {
+    }
+    else
+    {
 #if 1
         // Open ser1 device as fd=0
         result = _devopen(0, "ser", 2);

@@ -364,7 +364,6 @@ static int sysexec(int fd)
 static int syswait(int tid)
 {
   trace("%s(%d)", __func__, tid);
-
   if (tid == 0)
     return thread_join_any();
   else

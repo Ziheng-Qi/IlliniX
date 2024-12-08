@@ -411,17 +411,19 @@ int thread_join_any(void) {
     for (tid = 1; tid < NTHR; tid++) {
         if (thrtab[tid] != NULL && thrtab[tid]->parent == CURTHR) {
             if (thrtab[tid]->state == THREAD_EXITED)
+            {
+
                 return thread_join(tid);
+            }
+
             childcnt++;
         }
     }
 
     // If the current thread has no children, this is a bug. We could also
     // return -EINVAL if we want to allow the calling thread to recover.
-
     if (childcnt == 0)
         panic("thread_wait called by childless thread");
-    
 
     // Wait for some child to exit. An exiting thread signals its parent's
     // child_exit condition.

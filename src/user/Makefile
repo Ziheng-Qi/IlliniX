@@ -14,6 +14,8 @@ ULIB_OBJS = \
 	string.o \
 	syscall.o \
 	stdlib.o \
+	termio.o \
+	termutils.o
 
 
 ALL_TARGETS = \
@@ -25,7 +27,8 @@ ALL_TARGETS = \
 	bin/init_trek_rule30 \
 	bin/init_fib_rule30 \
 	bin/init_fib_fib \
-	bin/fib
+	bin/fib \
+	bin/shell
 
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
@@ -69,6 +72,8 @@ bin/init_fib_rule30: $(ULIB_OBJS) init_fib_rule30.o
 bin/init_fib_fib: $(ULIB_OBJS) init_fib_fib.o
 	$(LD) -T user.ld -o $@ $^
 
+bin/shell: $(ULIB_OBJS) shell.o 
+	$(LD) -T user.ld -o $@ $^
 
 clean:
 	rm -rf *.o *.elf *.asm $(ALL_TARGETS)
