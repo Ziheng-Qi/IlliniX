@@ -41,7 +41,7 @@ void main(void) {
 #if 1
         // Open ser1 device as fd=0
         result = _devopen(0, "ser", 2);
-
+        _msgout("ser2 opened");
         if (result < 0) {
             _msgout("_devopen failed ser2");
             _exit();
