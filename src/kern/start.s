@@ -1,11 +1,18 @@
         .section	.text
         
-        # Delegate interrupts and exceptions to S mode and give S mode access to
-        # all of physical memory
+        # Delegate to S mode all S mode interrupts and all exceptions except
+        # ecall from S mode and M mode; ecalls from S mode are used to provide
+        # access to the timer to S mode. Enable M mode interrupts.
+
+        li      t0, 0xb1ff
+        csrw    medeleg, t0
+        li      t0, 0x222
+        csrw    mideleg, t0
+        csrs    mstatus, 4 # MIE
+
+        # Give S mode access to the entire physical address space
 
         addi    t0, zero, -1
-        csrw    medeleg, t0
-        csrw    mideleg, t0
         csrw    pmpaddr0, t0
         csrsi   pmpcfg0, 0xf
 
@@ -15,12 +22,6 @@
         la      t1, _trap_entry_from_smode
         csrw    mtvec, t0
         csrw    stvec, t1
-
-        li      t0, 1UL << 18
-        csrs    mstatus, t0
-        csrc    mstatus, t0
-        csrs    sstatus, t0
-        csrc    sstatus, t0
 
         # Enable access to cycle, time, and instret counters in S and U mode
 

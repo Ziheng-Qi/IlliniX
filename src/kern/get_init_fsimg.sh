@@ -3,10 +3,12 @@ cd ../util
 make clean
 make
 cd ../user
-make clean
 make
 cp -r bin ../util
 cd ../util
-./mkfs kfs.raw ./bin/init0 ./bin/init1 ./bin/init2 ./bin/trek ./bin/init3 ./bin/init4 ./bin/helloworld.txt 
+FILES_INBIN=$(find ./bin -type f -name "*" | xargs)
+echo $FILES_INBIN
+./mkfs kfs.raw $FILES_INBIN
+rm -r bin
 mv kfs.raw ../kern
 cd ../kern

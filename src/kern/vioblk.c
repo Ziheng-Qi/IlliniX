@@ -10,6 +10,9 @@
 #include "error.h"
 #include "string.h"
 #include "thread.h"
+#include "lock.h"
+
+struct lock vblk_lk;
 
 #define min(a,b) (a < b ? a : b)
 
@@ -233,6 +236,7 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     dev = kmalloc(sizeof(struct vioblk_device) + blksz);
     memset(dev, 0, sizeof(struct vioblk_device));
 
+    lock_init(&vblk_lk, "vioblk_lock");
 
     //           FIXME Finish initialization of vioblk device here
     dev->regs = regs;
@@ -328,7 +332,7 @@ int vioblk_open(struct io_intf ** ioptr, void * aux) {
 
     //sets necessary flags in vioblk_device (opened?)
     dev->opened = 1;
-
+    dev->io_intf.refcnt = 1;
     *ioptr = &dev->io_intf;
 
     return 0;
@@ -455,6 +459,8 @@ long vioblk_read (
 {
     struct vioblk_device * const dev = (void *) io - offsetof(struct vioblk_device, io_intf);
 
+    lock_acquire(&vblk_lk);
+
     trace("%s(buf=%p, bufsz=%ld)", __func__, buf, bufsz);
     assert(io != NULL);
     assert(dev->opened); 
@@ -462,6 +468,7 @@ long vioblk_read (
 
     if(dev->pos + bufsz > dev->regs->config.blk.capacity * VIOBLK_SECTOR_SIZE){
         kprintf("read exceeds block device capacity");
+        lock_release(&vblk_lk);
         return 0;
     }
 
@@ -482,8 +489,9 @@ long vioblk_read (
 
     // now we need to copy data from the buffer we read from the device to the output buffer
     memcpy(buf, dev->blkbuf + pos_in_blk, end_pos - start_pos); // copy to the end of the block
-    dev->pos += end_pos - start_pos;
 
+    dev->pos += end_pos - start_pos;
+    lock_release(&vblk_lk);
     return end_pos - start_pos;
 }
 
@@ -503,6 +511,7 @@ long vioblk_write (
 {
     // FIXME your code here
 
+    lock_acquire(&vblk_lk);
     struct vioblk_device * const dev = (void *) io - offsetof(struct vioblk_device, io_intf);
 
     trace("%s(buf=%p, bufsz=%ld)", __func__, buf, n);
@@ -511,6 +520,7 @@ long vioblk_write (
 
     if(dev->pos + n > dev->regs->config.blk.capacity * VIOBLK_SECTOR_SIZE){
         kprintf("write exceeds block device capacity");
+        lock_release(&vblk_lk);
         return 0;
     }
 
@@ -545,6 +555,7 @@ long vioblk_write (
 
     // write to device is done, update bytes_written to device
     dev->pos += end_pos - start_pos;
+    lock_release(&vblk_lk);
     return end_pos - start_pos;
 }
 
@@ -558,6 +569,7 @@ long vioblk_write (
  * @return 0 if successful, negative if error
  */
 int vioblk_ioctl(struct io_intf * restrict io, int cmd, void * restrict arg) {
+    lock_acquire(&vblk_lk);
     struct vioblk_device * const dev = (void*)io -
         offsetof(struct vioblk_device, io_intf);
     
@@ -565,14 +577,19 @@ int vioblk_ioctl(struct io_intf * restrict io, int cmd, void * restrict arg) {
     
     switch (cmd) {
     case IOCTL_GETLEN:
+        lock_release(&vblk_lk);
         return vioblk_getlen(dev, arg);
     case IOCTL_GETPOS:
+        lock_release(&vblk_lk);
         return vioblk_getpos(dev, arg);
     case IOCTL_SETPOS:
+        lock_release(&vblk_lk);
         return vioblk_setpos(dev, arg);
     case IOCTL_GETBLKSZ:
+        lock_release(&vblk_lk);
         return vioblk_getblksz(dev, arg);
     default:
+        lock_release(&vblk_lk);
         return -ENOTSUP;
     }
 }

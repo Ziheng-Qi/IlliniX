@@ -9,6 +9,7 @@
 
 #define SYSCALL_DEVOPEN 10
 #define SYSCALL_FSOPEN  11
+#define SYSCALL_PIPE    12
 
 #define SYSCALL_CLOSE   20
 #define SYSCALL_READ    21
@@ -17,6 +18,9 @@
 
 #define SYSCALL_EXEC    30
 #define SYSCALL_FORK    31
+
+#define SYSCALL_USLEEP  40
+#define SYSCALL_WAIT    41
 
 
 #endif // _SCNUM_H_

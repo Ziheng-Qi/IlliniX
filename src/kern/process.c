@@ -72,7 +72,6 @@ void procmgr_init(void){
     main_proc.tid = running_thread(); // main thread always have tid 0
     main_proc.mtag = active_memory_space();
     thread_set_process(main_proc.tid, &main_proc);
-
     // just in case
     for (int i = 0; i < PROCESS_IOMAX; i++){
         main_proc.iotab[i] = NULL;
@@ -130,7 +129,6 @@ int process_exec(struct io_intf *exeio){
  */
 void process_exit(void){
 
-     
     // reclaim memory space
     if(running_thread() != main_proc.tid){
         memory_space_reclaim();
@@ -140,9 +138,9 @@ void process_exit(void){
     struct process *proc = current_process();
     struct io_intf **iotab = proc->iotab;
     for(int i = 0; i < PROCESS_IOMAX; i++){
-        if(iotab[i] != NULL){
-            struct io_intf* io = iotab[i];
-            io->ops->close(io);
+        if (iotab[i] != NULL)
+        {
+            ioclose(iotab[i]);
         }
     }
 
@@ -163,33 +161,40 @@ void process_exit(void){
  * and sets up the necessary process structures. The function distinguishes between
  * the parent and child processes and returns the appropriate thread ID (TID).
  *
- * @return int
- * - If called by the parent process, returns the TID of the child process.
- * - If called by the child process, returns 0.
+ * @return the TID of the child process.
+ * - If called by the child process, it will write 0 to the child's trap frame's a0 instead of directly returning, because the latter will make it write to the parent trap frame
  */
-int process_fork(){
-    int parent_tid = running_thread();
+int process_fork(const struct trap_frame * parent_tfr){
+    // Find an unused PID for child
     int child_pid = 0;
     for(;child_pid < NPROC; child_pid++){
         if(proctab[child_pid] == NULL){ // this is an unused pid, child pid is now this
-            continue;
+            break;
         }
     }
 
+    // create new process struct
+    proctab[child_pid] = kmalloc(sizeof(struct process));
     proctab[child_pid]->id = child_pid;
-    // proctab[child_pid]->mtag = memory_space_clone();
-    // struct io_intf* child_iotab[] = proctab[child_pid]->iotab;
-    // for(int i = 0; i < PROCESS_IOMAX; i++){
-    //     if(child_iotab[i] != NULL){
-    //         child_iotab[i]->ref_cnt ++;
-    //     }
-    // }
+    proctab[child_pid]->mtag = memory_space_clone(0);
 
-    // parent thread
-    if(running_thread() == parent_tid){
-        return proctab[child_pid]->tid;
+
+    // copies the io_intf pointers from parent's iotab to child's iotab 
+    // and increment the reference count
+    struct io_intf** child_iotab = proctab[child_pid]->iotab;
+    for (int i = 0; i < PROCESS_IOMAX; i++)
+    {
+        child_iotab[i] = current_process()->iotab[i];
+        if (child_iotab[i] != NULL)
+        {
+            ioref(child_iotab[i]);
+        }
     }
 
-    // child thread
-    return 0;
+    // now every thing with the new process is initiliazed except the thread
+    int child_tid = thread_fork_to_user(proctab[child_pid], parent_tfr);
+    proctab[child_pid]->tid = child_tid;
+
+    // this return value will only save to parent's trap frame, so just child_tid
+    return child_tid;
 }

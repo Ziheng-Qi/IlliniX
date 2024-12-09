@@ -6,3 +6,4 @@ kfs.raw
 src/util/root_folder/*
 src/user/bin/*
 src/util/mkfs
+src/util/bin/*

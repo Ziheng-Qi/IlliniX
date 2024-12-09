@@ -73,7 +73,9 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)) {
             uint_fast8_t pte_flags = phdr_flag_to_pte_flag(prog_hdr.p_flags);
             #endif
             uintptr_t vaddr = prog_hdr.p_vaddr;
+            kprintf("prog_hdr.addr: %x\n", vaddr);
             vaddr = (uintptr_t)(memory_alloc_and_map_range(vaddr, prog_hdr.p_filesz, PTE_R | PTE_W | PTE_U));
+            kprintf("loaded vaddr: %x\n", vaddr);
             result = ioread(io, (void *)vaddr, prog_hdr.p_filesz);
             switch (ELF_TEST_FLAG){
                 case PTE_R:

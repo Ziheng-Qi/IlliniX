@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "lock.h"
 #include "halt.h"
 #include "console.h"
 #include "heap.h"
@@ -166,8 +167,10 @@ static void idle_thread_func(void * arg);
 
 extern struct thread * _thread_swtch(struct thread * resuming_thread);
 
+extern void _thread_finish_fork(struct thread *child, void* child_ksp, const struct trap_frame *parent_tfr);
+
 extern void _thread_setup (
-    struct thread * thr, void * ksp, void (*start)(void), ...);
+    struct thread * thr, void * ksp, void (*start)(void *), ...);
 
 extern void __attribute__ ((noreturn)) _thread_finish_jump (
     const struct thread_stack_anchor * stack_anchor,
@@ -209,12 +212,11 @@ int thread_spawn(const char * name, void (*start)(void *), void * arg) {
     
     // Allocate a struct thread and a stack
 
-    child = kmalloc(PAGE_SIZE + sizeof(struct thread));
-    child = (void*)child + PAGE_SIZE;
-    memset(child, 0, sizeof(struct thread));
+    child = kmalloc(sizeof(struct thread));
 
     stack_page = memory_alloc_page();
-    stack_anchor = stack_page + PAGE_SIZE - sizeof(struct thread_stack_anchor);
+    stack_anchor = stack_page + PAGE_SIZE;
+    stack_anchor -= 1;
     stack_anchor->thread = child;
     stack_anchor->reserved = 0;
 
@@ -226,14 +228,142 @@ int thread_spawn(const char * name, void (*start)(void *), void * arg) {
     child->parent = CURTHR;
     child->proc = CURTHR->proc;
     child->stack_base = stack_anchor;
-    child->stack_size = PAGE_SIZE - sizeof(struct thread_stack_anchor);
+    child->stack_size = child->stack_base - stack_page;
     set_thread_state(child, THREAD_READY);
 
     saved_intr_state = intr_disable();
     tlinsert(&ready_list, child);
     intr_restore(saved_intr_state);
+
+    _thread_setup(child, child->stack_base, start, arg);
     
     return tid;
+}
+
+/**
+ * @brief Forks a new thread for a child process and sets up its execution context.
+ *
+ * This function allocates new memory for the child process and sets up another thread struct.
+ * It also initializes a stack anchor to reclaim the thread pointer when coming back from a U mode interrupt.
+ * The child's memory space is switched into and the thread is set to be run.
+ * 
+ *
+ * @param child_proc Pointer to the child process structure.
+ * @param parent_tfr Pointer to the trap frame of the parent process.
+ * @return The thread ID of the newly created child thread.
+ *
+ * @note Several things that this function (and other functions that works with it) assures:
+ * 1. The child has the same trap frame (in kernel stack) as the parent (including user stack pointer).
+ *    We choose to make the child have the same kernel stack as the parent by memcpy, so the trap frame is also copied.
+ * 2. The child has the same user stack as the parent (handled in memory_space_clone()).
+ * 3. The child has a different kernel stack pointer (handled in thread_finish_fork()).
+ * 4. Need to handle the fact that there is only one sscratch but multiple threads (need to preserve user stack pointer).
+ *    This is stored in the trap frame (handled in trap_entry_from_umode).
+ * 5. Context switch to the child thread (save parent context), child context copies parent context except tp and sp
+ *    (handled in thread_finish_fork()).
+ * 6. The child and parent need to sret with different values
+ *    For parent we can just return, sysfork will store the return value into trap frame and then restored before sret
+ *    For child we need to manually put this into the trap frame of the child, done in this function
+ *     
+ */
+int thread_fork_to_user (struct process * child_proc, const struct trap_frame * parent_tfr){
+    /*This function allocates new memory for the child process and sets up another thread struct. It also initializes
+    a stack anchor to reclaim the thread pointer when coming back from a U mode interrupt. The child's memory
+    space is switched into and the thread is set to be run. Another helper function, with the following signature，
+    should be written in assembly which perforns the context switch*/
+
+    // several things to consider:
+    // 1. child need to have the same trap frame (in kernel stack) as the parent (including user stack pointer)
+    // Note: We choose to make child have the same kernel stack as the parent by memcpy, so trap frame is also copied
+    // (done below)
+
+    // 2. child need to have the same user stack as the parent (need to copy in memory_space_clone())
+    // (done in memory_space_clone()) 
+
+    // 3. child need to have a different kernel stack pointer
+    // (done in thread_finish_fork()) 
+
+    // 4. need to find a way to deal with the fact that only one sscratch but multiple threads (need to preserve user stack pointer)
+    // because when _thread_swtch, we are in S mode, so the sp in context will be kernel stack pointer
+    // therefore we need a way to store user stack pointer. we can store this also in thread context
+    // but we can also store this in trap frame (trap_entry_from_umode)
+    // (done in trapasm.s) 
+
+    // 5. Context switch to child thread, (save parent context), child context copies parent context except tp and sp
+    // (done in thread_finish_fork())
+
+    // 6. child and parent need to sret with different values.
+    // (done in process_fork())
+
+    intr_disable();
+
+    trace("%s() in %s", __func__, CURTHR->name);
+
+    // at this point, child_proc should have been initialized within process_fork
+
+    assert(child_proc != NULL);
+
+    // initialize the child thread
+    // TODO: here starts initialization of the child thread, for the current case, we might assume one process got only one thread but there are multiple processes allowed
+    
+    // find a free thread slot.
+    int child_tid = 0;
+    while(child_tid < NTHR){
+        if(thrtab[child_tid] == NULL){
+            break;
+        }
+        child_tid ++;
+    }
+
+    if(child_tid == NTHR){
+        panic("Too many threads");
+    }
+
+    void * child_kernel_stack_lowest = kmalloc(PAGE_SIZE);
+    void * child_kernel_stack_base = child_kernel_stack_lowest + PAGE_SIZE;
+
+    struct thread_stack_anchor * child_stack_anchor = (struct thread_stack_anchor *)(child_kernel_stack_base - sizeof(struct thread_stack_anchor));
+    child_stack_anchor->thread = kmalloc(sizeof(struct thread));
+    child_stack_anchor->reserved = 0;
+
+    struct thread* child = child_stack_anchor->thread;
+    thrtab[child_tid] = child;
+
+    child->id = child_tid;
+    child->name = "a forked thread";
+    child->parent = CURTHR;
+    child->proc = child_proc;
+    child->stack_base = child_kernel_stack_base - sizeof(struct thread_stack_anchor);
+    child->stack_size = child->stack_base - child_kernel_stack_lowest;
+    set_thread_state(child, THREAD_RUNNING); // run child thread
+
+    set_thread_state(CURTHR, THREAD_READY); // parent thread added to ready list
+    tlinsert(&ready_list, CURTHR);
+
+    memory_space_switch(child_proc->mtag); // switch to child memory space
+    // get kernel stack pointer
+    void* parent_kernel_sp;
+    void* child_kernel_sp;
+    asm inline ("mv %0, sp" : "=r" (parent_kernel_sp));
+
+    // copy parent kernel stack to child kernel stack
+    uint64_t parent_kstack_used_size = CURTHR->stack_base - parent_kernel_sp;
+
+
+    // copy [parent sp ~ parent->stack_base] to [child_kernel_sp - used_stack_size ~ child->stack_base]
+    child_kernel_sp = child->stack_base - parent_kstack_used_size;
+    memcpy(child_kernel_sp, parent_kernel_sp, parent_kstack_used_size);
+    
+    // performs context switch
+    _thread_finish_fork(child, child_kernel_sp, parent_tfr);
+
+    // child thread
+    if(running_thread() == child_tid){
+        // if we are in child thread, then we need to store 0 into the a0 of child trap frame
+        struct trap_frame * c_tfr = (struct trap_frame *)(child->stack_base) - 1;
+        c_tfr->x[TFR_A0] = 0;    
+    }
+    return child_tid;
 }
 
 void thread_exit(void) {
@@ -281,17 +411,19 @@ int thread_join_any(void) {
     for (tid = 1; tid < NTHR; tid++) {
         if (thrtab[tid] != NULL && thrtab[tid]->parent == CURTHR) {
             if (thrtab[tid]->state == THREAD_EXITED)
+            {
+
                 return thread_join(tid);
+            }
+
             childcnt++;
         }
     }
 
     // If the current thread has no children, this is a bug. We could also
     // return -EINVAL if we want to allow the calling thread to recover.
-
     if (childcnt == 0)
         panic("thread_wait called by childless thread");
-    
 
     // Wait for some child to exit. An exiting thread signals its parent's
     // child_exit condition.
@@ -378,7 +510,6 @@ void condition_wait(struct condition * cond) {
     saved_intr_state = intr_disable();
     tlinsert(&cond->wait_list, CURTHR);
     intr_restore(saved_intr_state);
-
     suspend_self();
 }
 
@@ -428,7 +559,7 @@ void init_idle_thread(void) {
     extern char _idle_stack_lowest[]; // from thrasm.s
 
     extern void _thread_setup (
-        struct thread * thr, void * sp, void (*start)(void), ...);
+        struct thread * thr, void * sp, void (*start)(void *), ...);
 
     idle_thread.stack_base = _idle_stack_anchor;
     idle_thread.stack_size = _idle_stack_anchor - _idle_stack_lowest;

@@ -10,11 +10,29 @@ OBJCOPY=$(TOOLPREFIX)objcopy
 OBJDUMP=$(TOOLPREFIX)objdump
 
 ULIB_OBJS = \
+	start.o \
 	string.o \
-	io.o \
 	syscall.o \
 	stdlib.o \
-	start.o
+	termio.o \
+	termutils.o
+
+
+ALL_TARGETS = \
+	bin/init0 \
+	bin/init1 \
+	bin/init2 \
+	bin/init3 \
+	bin/init4 \
+	bin/lock_test \
+	bin/init_trek_rule30 \
+	bin/init_fib_rule30 \
+	bin/init_fib_fib \
+	bin/fib \
+	bin/shell \
+	bin/refcnt \
+	bin/pipe_test \
+
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += -mcmodel=medany -fno-pie -no-pie -march=rv64g -mabi=lp64d
@@ -22,7 +40,13 @@ CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
 CFLAGS += -fno-asynchronous-unwind-tables
 CFLAGS += -I.
 
-all: bin/trek bin/init0 bin/init1 bin/init2 bin/init3 bin/init4 
+all: $(ALL_TARGETS)
+
+bin/refcnt : $(ULIB_OBJS) refcnt.o
+	$(LD) -T user.ld -o $@ $^
+
+bin/troll: $(ULIB_OBJS) troll.o
+	$(LD) -T user.ld -o $@ $^
 
 bin/init0: $(ULIB_OBJS) init0.o
 	$(LD) -T user.ld -o $@ $^
@@ -38,6 +62,30 @@ bin/init3: $(ULIB_OBJS) init3.o
 
 bin/init4: $(ULIB_OBJS) init4.o
 	$(LD) -T user.ld -o $@ $^
-	
+
+bin/lock_test: $(ULIB_OBJS) lock_test.o
+	$(LD) -T user.ld -o $@ $^
+
+# bin/init5: $(ULIB_OBJS) init5.o
+# 	$(LD) -T user.ld -o $@ $^
+
+bin/fib: $(ULIB_OBJS) fib.o
+	$(LD) -T user.ld -o $@ $^
+
+bin/init_trek_rule30: $(ULIB_OBJS) init_trek_rule30.o
+	$(LD) -T user.ld -o $@ $^
+
+bin/init_fib_rule30: $(ULIB_OBJS) init_fib_rule30.o
+	$(LD) -T user.ld -o $@ $^
+
+bin/init_fib_fib: $(ULIB_OBJS) init_fib_fib.o
+	$(LD) -T user.ld -o $@ $^
+
+bin/shell: $(ULIB_OBJS) shell.o 
+	$(LD) -T user.ld -o $@ $^
+
+bin/pipe_test: $(ULIB_OBJS) pipe_test.o
+	$(LD) -T user.ld -o $@ $^
+
 clean:
-	rm -rf *.o *.elf *.asm bin/init0 bin/init1 bin/init2
+	rm -rf *.o *.elf *.asm $(ALL_TARGETS)

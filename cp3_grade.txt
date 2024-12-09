@@ -1,0 +1,9 @@
+
+TO TEST LOCKING:
+lock_test.c  
+
+TO TEST REFCNT:
+refcnt.c
+
+TO TEST EXTRA CREDIT (PIPELINE):
+pipe_test.c

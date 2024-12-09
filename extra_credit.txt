@@ -1,0 +1,43 @@
+For extra credit:
+
+We implemented bidirection pipe for inter process communication mentioned in the MP3 document, and the virtual memory extra credit functions from cp2
+
+
+PIPE:
+
+We added a file pipe.c which contains core functions and definitions for the pipe.
+The pipeline is created through calling _pipe() syscall in user.
+This is redirected to syspipe() function in kernel, further redirected to pipe_open() which opens a pipeline of 512B maximum
+pipe_read, pipe_write, pipe_ioctl and pipe_close are functions that are compatible with the io_intf.
+On syspipe, an pipeline io_intf is put to the iotab of the current process.
+After this current process forks, all child (and parent) processes have access to this pipe.
+
+We choose to implement this pipeline as a BUS (multi master and multi slave)
+Any process that have access to it can attempt to write to (and read from) it, as long as it acquire the lock to the pipeline buffer successfully.
+
+Steps to test:
+1. 
+make filesystem kfs.raw with the executable compiled from pipe_test.c
+
+2. 
+run pipe_test as an init user program in main.c
+
+3. 
+attach to two uart serials using screen
+
+4. 
+How pipe_test work is that the screen attached to serial1 is from the child process and the one attached to serial2 is from the parent process.
+Initially child will be input(write to pipe) and parent will be output(read from pipe).
+By entering "Enter" on the keyboard the role of child and parent switches. 
+We call the screen that is allowing inputs(writing to pipe) be the writing screen.
+We call the screen that is receiving be the reading screen.
+
+5. Initially the child process will print a prompt asking for input but because we attach screen after that it won't show at first.
+    We just need to find the screen corresponding to serial1 and type characters into it, then we can see characters appearing in the other screen.
+    By pressing "Enter" the role of child and parent switches, and a prompt will show on both screen. Now just type into the screen where it says "write line"
+
+Note: If accidentally type into the reading screen, it will show the characters but uart will store the characters in the buffer.
+        By pressing enter in the "writing line" screen to switch roles, these characters will show. 
+        Becareful that typing enter in the reading screen will make it immediately switch from writing screen to reading screen after next time it switch from reading to writing.
+
+    

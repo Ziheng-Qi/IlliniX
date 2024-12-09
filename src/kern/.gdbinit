@@ -36,8 +36,8 @@ end
 document si_n_rv
     Step N instructions and disassemble the last one.
 end
-define reconnect_tcp
+define rrst
     target remote tcp::26000
 end
 
-add-symbol-file ../user/bin/init2 0x00000000C0000000
+add-symbol-file ../user/bin/pipe_test 0x00000000C0000000

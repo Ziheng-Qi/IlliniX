@@ -1,5 +1,5 @@
-//           uart.c - NS16550a-based uart port
-//           
+// uart.c - NS16550a-based uart port
+// 
 
 #include "uart.h"
 
@@ -11,9 +11,10 @@
 #include "heap.h"
 #include "halt.h"
 #include "intr.h"
-#include <limits.h>
-//           COMPILE-TIME CONSTANT DEFINITIONS
-//          
+#include "limits.h"
+
+// COMPILE-TIME CONSTANT DEFINITIONS
+//
 
 #ifndef UART0_IOBASE
 #define UART0_IOBASE 0x10000000
@@ -27,31 +28,24 @@
 #define UART_IRQ_PRIO 3
 #endif
 
-//           INTERNAL TYPE DEFINITIONS
-//           
+// INTERNAL TYPE DEFINITIONS
+// 
 
 struct uart_regs {
 	union {
-		//           DLAB=0 read
-		char rbr;
-		//           DLAB=0 write
-		char thr;
-		//           DLAB=1
-		uint8_t dll;
+		char rbr; // DLAB=0 read
+		char thr; // DLAB=0 write
+		uint8_t dll; // DLAB=1
 	};
 	
 	union {
-		//           DLAB=0
-		uint8_t ier;
-		//           DLAB=1
-		uint8_t dlm;
+		uint8_t ier; // DLAB=0
+		uint8_t dlm; // DLAB=1
 	};
 	
 	union {
-		//           read
-		uint8_t iir;
-		//           write
-		uint8_t fcr;
+		uint8_t iir; // read
+		uint8_t fcr; // write
 	};
 
 	uint8_t lcr;
@@ -69,10 +63,8 @@ struct uart_regs {
 #define IER_THREIE (1 << 1)
 
 struct ringbuf {
-    //           head of queue (from where elements are removed)
-    uint16_t hpos;
-    //           tail of queue (where elements are inserted)
-    uint16_t tpos;
+    uint16_t hpos; // head of queue (from where elements are removed)
+    uint16_t tpos; // tail of queue (where elements are inserted)
     char data[SERIAL_RBUFSZ];
 };
 
@@ -80,10 +72,7 @@ struct uart_device {
 	volatile struct uart_regs * regs;
 	int irqno;
 
-	//           number of times OE was set
-	uint32_t rxovrcnt;
-
-	int8_t opened;
+	uint32_t rxovrcnt; // number of times OE was set
 
 	struct io_intf io_intf;
 	
@@ -94,8 +83,8 @@ struct uart_device {
 	struct ringbuf txbuf;
 };
 
-//           INTERNAL FUNCTION DEFINITIONS
-//          
+// INTERNAL FUNCTION DEFINITIONS
+//
 
 static int uart_open(struct io_intf ** ioptr, void * aux);
 static void uart_close(struct io_intf * io);
@@ -112,8 +101,8 @@ static int rbuf_full(const struct ringbuf * rbuf);
 static void rbuf_put(struct ringbuf * rbuf, char c);
 static char rbuf_get(struct ringbuf * rbuf);
 
-//           EXPORTED FUNCTION DEFINITIONS
-//           
+// EXPORTED FUNCTION DEFINITIONS
+// 
 
 void uart_attach(void * mmio_base, int irqno) {
 	static const struct io_ops uart_ops = {
@@ -124,7 +113,7 @@ void uart_attach(void * mmio_base, int irqno) {
 
 	struct uart_device * dev;
 
-	//           UART0 is used for the console, so can't be opened
+	// UART0 is used for the console, so can't be opened
 
 	if (mmio_base == (void*)UART0_IOBASE) {
 		device_register("ser", &uart_open_ebusy, NULL);
@@ -145,12 +134,11 @@ void uart_attach(void * mmio_base, int irqno) {
 
 	dev->regs->ier = 0;
     dev->regs->lcr = LCR_DLAB;
-    //           fence o,o ?
+    // fence o,o ?
     dev->regs->dll = 0x01;
     dev->regs->dlm = 0x00;
-    //           fence o,o ?
-    //           DLAB=0
-    dev->regs->lcr = 0;
+    // fence o,o ?
+    dev->regs->lcr = 0; // DLAB=0
 
 	intr_register_isr(irqno, UART_IRQ_PRIO, uart_isr, dev);
 	device_register("ser", &uart_open, dev);
@@ -161,25 +149,23 @@ int uart_open(struct io_intf ** ioptr, void * aux) {
 
 	assert (ioptr != NULL);
 
-	if (dev->opened)
+	if (dev->io_intf.refcnt)
 		return -EBUSY;
 	
-	//           Reset receive and transmit buffers
+	// Reset receive and transmit buffers
 	
 	rbuf_init(&dev->rxbuf);
 	rbuf_init(&dev->txbuf);
 
-	//           Read receive buffer register to clear it. Enable RX interrupts only.
+	// Read receive buffer register to clear it. Enable RX interrupts only.
 
-	//           forces a read
-	dev->regs->rbr;
+	dev->regs->rbr; // forces a read
 	dev->regs->ier = IER_DREIE;
 
 	intr_enable_irq(dev->irqno);
 
 	*ioptr = &dev->io_intf;
-	dev->opened = 1;
-
+	dev->io_intf.refcnt = 1;
 	return 0;
 }
 
@@ -189,27 +175,22 @@ void uart_close(struct io_intf * io) {
 
 	trace("%s()", __func__);
 	assert (io != NULL);
-	assert(dev->opened);
 	
-	//           Disable all interrupts from device
+	// Disable all interrupts from device
 
 	dev->regs->ier = 0;
 	intr_disable_irq(dev->irqno);
-	
-	dev->opened = 0;
 }
 
 long uart_read(struct io_intf * io, void * buf, unsigned long bufsz) {
 	struct uart_device * const dev =
 		(void*)io - offsetof(struct uart_device, io_intf);
-	//           position in buf to put next byte
-	char * p = buf;
+	char * p = buf; // position in buf to put next byte
 
 	trace("%s(buf=%p,bufsz=%ld)", __func__, buf, bufsz);
 	assert (io != NULL);
-	assert (dev->opened);
 
-	//           We can only report reads of up to LONG_MAX bytes
+	// We can only report reads of up to LONG_MAX bytes
 
 	if (LONG_MAX < bufsz)
 		bufsz = LONG_MAX;
@@ -217,15 +198,15 @@ long uart_read(struct io_intf * io, void * buf, unsigned long bufsz) {
 	if (bufsz == 0)
 		return 0;
 
-	//           Wait until ring buffer contains some data. An optimization here might
-	//           be to try to read some data without disabling interrupts first, and
-	//           only disabling them and waiting on the condition if we need to.
-	//           
-	//           Check your understanding: why do we need to disable interrupts? Can we
-	//           call condition_wait(&dev->rxavail) without disabling interrupts?
-	//           
-	//           Could we implement this as a busy-wait?
-	//           
+	// Wait until ring buffer contains some data. An optimization here might
+	// be to try to read some data without disabling interrupts first, and
+	// only disabling them and waiting on the condition if we need to.
+	// 
+	// Check your understanding: why do we need to disable interrupts? Can we
+	// call condition_wait(&dev->rxavail) without disabling interrupts?
+	// 
+	// Could we implement this as a busy-wait?
+	// 
 
 	intr_disable();
 
@@ -237,8 +218,7 @@ long uart_read(struct io_intf * io, void * buf, unsigned long bufsz) {
 	while (!rbuf_empty(&dev->rxbuf) && p - (char*)buf < bufsz)
 		*p++ = rbuf_get(&dev->rxbuf);
 	
-	//           enable receive interrupts
-	dev->regs->ier |= IER_DREIE;
+	dev->regs->ier |= IER_DREIE; // enable receive interrupts
 	
 	return p - (char*)buf;
 }
@@ -246,19 +226,17 @@ long uart_read(struct io_intf * io, void * buf, unsigned long bufsz) {
 long uart_write(struct io_intf * io, const void * buf, unsigned long n) {
 	struct uart_device * const dev =
 		(void*)io - offsetof(struct uart_device, io_intf);
-	//           position in buf to get next byte
-	const char * p = buf;
+	const char * p = buf; // position in buf to get next byte
 	
 	trace("%s(n=%ld)", __func__, n);
 	assert (io != NULL);
-	assert (dev->opened);
 
-	//          We can only report writes of up to LONG_MAX size
+	//We can only report writes of up to LONG_MAX size
 
 	if (LONG_MAX < n)
 		n = LONG_MAX;
 
-	//           Wait until there is room in the transmit ring buffer.
+	// Wait until there is room in the transmit ring buffer.
 
 	while (p - (char*)buf < n) {
 		intr_disable();
@@ -341,30 +319,30 @@ char rbuf_get(struct ringbuf * rbuf) {
     return c;
 }
 
-//           The functions below provide polled uart input and output. They are used
-//           by the console functions to produce output from pritnf().
+// The functions below provide polled uart input and output. They are used
+// by the console functions to produce output from pritnf().
 
 #define UART0 (*(volatile struct uart_regs*)UART0_IOBASE)
 
 void com0_init(void) {
 	UART0.ier = 0x00;
 
-	//           Configure UART0. We set the baud rate divisor to 1, the lowest value,
-	//           for the fastest baud rate. In a physical system, the actual baud rate
-	//           depends on the attached oscillator frequency. In a virtualized system,
-	//           it doesn't matter.
+	// Configure UART0. We set the baud rate divisor to 1, the lowest value,
+	// for the fastest baud rate. In a physical system, the actual baud rate
+	// depends on the attached oscillator frequency. In a virtualized system,
+	// it doesn't matter.
 	
 	UART0.lcr = LCR_DLAB;
 	UART0.dll = 0x01;
 	UART0.dlm = 0x00;
 
-	//           The com0_putc and com0_getc functions assume DLAB=0.
+	// The com0_putc and com0_getc functions assume DLAB=0.
 
 	UART0.lcr = 0;
 }
 
 void com0_putc(char c) {
-	//           Spin until THR is empty
+	// Spin until THR is empty
 	while (!(UART0.lsr & LSR_THRE))
 		continue;
 
@@ -372,7 +350,7 @@ void com0_putc(char c) {
 }
 
 char com0_getc(void) {
-	//           Spin until RBR contains a byte
+	// Spin until RBR contains a byte
 	while (!(UART0.lsr & LSR_DR))
 		continue;
 	

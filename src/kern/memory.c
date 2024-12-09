@@ -81,6 +81,8 @@ static inline size_t round_up_size(size_t n, size_t blksz);
 static inline void *round_down_ptr(void *p, size_t blksz);
 static inline size_t round_down_size(size_t n, size_t blksz);
 static inline uintptr_t round_down_addr(uintptr_t addr, size_t blksz);
+static inline uintptr_t vma_from_vpn(int vpn2, int vpn1, int vpn0, int offset);
+
 
 static inline struct pte leaf_pte(
     const void *pptr, uint_fast8_t rwxug_flags);
@@ -386,6 +388,81 @@ void memory_space_reclaim(void)
         sfence_vma();
     }
     sfence_vma();
+}
+
+/**
+ * @brief Clones a memory space from the current memory space. Creates a new root level page table.
+ * The first 3 ptes of the new root level table points to the same level 1 pt as the current memory space (shallow copy)
+ * For the fourth Gigapage (user space), creates new level 1 and level 0 page and copies the contents of the pages to the cloned memory space (deep copy)
+ * @return returns the new mtag
+ * @param asid asid of the new memory space, generally 0
+ */
+uintptr_t memory_space_clone(uint_fast16_t asid){
+    void * new_root_ptr = memory_alloc_page();
+    uintptr_t new_mtag =   ((uintptr_t)RISCV_SATP_MODE_Sv39 << RISCV_SATP_MODE_shift) |
+        pageptr_to_pagenum(new_root_ptr);
+    
+    struct pte *new_pt2 = (struct pte *) new_root_ptr;
+    struct pte *curr_pt2 = active_space_root();
+    
+    // MMIO Mappings
+    new_pt2[0] = curr_pt2[0];
+    new_pt2[1] = curr_pt2[1];
+    
+    // kernel Mappings
+    new_pt2[2] = curr_pt2[2];
+
+    // user mappings
+
+    // if the level 2 pte to user space is not valid in the current memory space, then we are done.
+    if(!(curr_pt2[3].flags & PTE_V)){
+        return new_mtag;
+    }
+
+    // allocate a page for the level 1 page table corresponding to user space
+    void * page = memory_alloc_page();
+    new_pt2[3] = ptab_pte((struct pte *) page, 0);
+
+    // the 0, 1, and 2nd pte mappings of the root level table can point to the same lower level page, so we only need to copy the user part
+    for(int vpn1 = 0; vpn1 < PTE_CNT; vpn1++){
+        struct pte *curr_pt1 = (struct pte *)pagenum_to_pageptr(curr_pt2[3].ppn);        
+        struct pte *new_pt1 = (struct pte *)pagenum_to_pageptr(new_pt2[3].ppn);        
+
+        // skip this level 1 pte if it's not mapped in the original space
+        if(!(curr_pt1[vpn1].flags & PTE_V)){
+            continue;
+        }
+
+        void * pt0 = memory_alloc_page();
+        new_pt1[vpn1] = ptab_pte((struct pte *) pt0, 0);
+        for(int vpn0 = 0; vpn0 < PTE_CNT; vpn0++){
+            struct pte *curr_pt0 = (struct pte *)pagenum_to_pageptr(curr_pt1[vpn1].ppn);        
+            struct pte *new_pt0 = (struct pte *)pagenum_to_pageptr(new_pt1[vpn1].ppn);
+
+            // skip this level 0 pte if it's not mapped in the original space
+            if(!(curr_pt0[vpn0].flags & PTE_V)){
+                continue;
+            }
+
+            // allocate a physical page for the same vma of the old memory space
+            void * leaf_page = memory_alloc_page();
+            uintptr_t vma_to_map = vma_from_vpn(3, vpn1, vpn0, 0);
+            new_pt0[vpn0] = leaf_pte(leaf_page, curr_pt0[vpn0].flags);
+
+            // copy the content of the physical page to the newly allocated page
+
+            // to copy the actual memory content, we must walk through the pts to get the physical a
+            uintptr_t new_ppn = walk_pt(new_pt2, vma_to_map, 0)->ppn;
+            uintptr_t curr_ppn = walk_pt(curr_pt2, vma_to_map, 0)->ppn;
+
+            void * new_pp = pagenum_to_pageptr(new_ppn);
+            void * curr_pp = pagenum_to_pageptr(curr_ppn);  
+            memcpy(new_pp, curr_pp, PAGE_SIZE);
+        } 
+
+    }
+    return new_mtag;
+
 }
 
 // Allocates a physical page from the free physical page pool and returns a pointer
@@ -778,4 +855,8 @@ static inline struct pte null_pte(void) {
 
 static inline void sfence_vma(void) {
     asm inline ("sfence.vma" ::: "memory");
+}
+
+static inline uintptr_t vma_from_vpn(int vpn2, int vpn1, int vpn0, int offset){
+    return ((uintptr_t)vpn2 << (9+9+12)) | ((uintptr_t)vpn1 << (9+12)) | ((uintptr_t)vpn0 << 12) | (uintptr_t)offset;
 }

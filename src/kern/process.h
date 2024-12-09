@@ -12,7 +12,7 @@
 #include "io.h"
 #include "thread.h"
 #include <stdint.h>
-
+#include "timer.h"
 // EXPORTED TYPE DEFINITIONS
 //
 
@@ -20,7 +20,7 @@ struct process {
     int id; // process id of this process
     int tid; // thread id of associated thread
     uintptr_t mtag; // memory space identifier
-    struct io_intf * iotab[PROCESS_IOMAX];
+    struct io_intf * iotab[PROCESS_IOMAX]; // an array of io_intf pointers
 };
 
 // EXPORTED VARIABLES DECLARATIONS
@@ -34,6 +34,7 @@ extern struct process * proctab[];
 
 extern void procmgr_init(void);
 extern int process_exec(struct io_intf * exeio);
+extern int process_fork(const struct trap_frame * parent_tfr);
 
 extern void __attribute__ ((noreturn)) process_exit(void);
 
