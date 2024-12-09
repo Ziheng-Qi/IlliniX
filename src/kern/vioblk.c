@@ -511,9 +511,9 @@ long vioblk_write (
 {
     // FIXME your code here
 
+    lock_acquire(&vblk_lk);
     struct vioblk_device * const dev = (void *) io - offsetof(struct vioblk_device, io_intf);
 
-    lock_acquire(&vblk_lk);
     trace("%s(buf=%p, bufsz=%ld)", __func__, buf, n);
     assert(io != NULL);
     assert(dev->opened); 
@@ -569,6 +569,7 @@ long vioblk_write (
  * @return 0 if successful, negative if error
  */
 int vioblk_ioctl(struct io_intf * restrict io, int cmd, void * restrict arg) {
+    lock_acquire(&vblk_lk);
     struct vioblk_device * const dev = (void*)io -
         offsetof(struct vioblk_device, io_intf);
     
@@ -576,14 +577,19 @@ int vioblk_ioctl(struct io_intf * restrict io, int cmd, void * restrict arg) {
     
     switch (cmd) {
     case IOCTL_GETLEN:
+        lock_release(&vblk_lk);
         return vioblk_getlen(dev, arg);
     case IOCTL_GETPOS:
+        lock_release(&vblk_lk);
         return vioblk_getpos(dev, arg);
     case IOCTL_SETPOS:
+        lock_release(&vblk_lk);
         return vioblk_setpos(dev, arg);
     case IOCTL_GETBLKSZ:
+        lock_release(&vblk_lk);
         return vioblk_getblksz(dev, arg);
     default:
+        lock_release(&vblk_lk);
         return -ENOTSUP;
     }
 }

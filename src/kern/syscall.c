@@ -160,6 +160,7 @@ static int syswrite(int fd, const void *buf, size_t len)
     return -EBADFD;
   }
   struct io_intf *io = proc->iotab[fd];
+  // kprintf("io %p\n", io);
   int result = memory_validate_vptr_len(buf, len, PTE_U | PTE_W);
   if (result != 0)
   {
@@ -199,6 +200,7 @@ static int sysioctl(int fd, const int cmd, void *arg)
     return -EBADFD;
   }
   struct io_intf *io = proc->iotab[fd];
+  // kprintf("io at ioctl %p\n", io);
   int result = ioctl(io, cmd, arg);
 
   return result;
@@ -246,7 +248,7 @@ static int sysdevopen(int fd, const char *name, int instno)
   }
   if (proc->iotab[fd] != NULL)
   {
-    ioref(&(proc->iotab[fd]));
+    ioref(proc->iotab[fd]);
     return fd;
   }
   int result = device_open(&(proc->iotab[fd]), name, instno);
@@ -299,7 +301,7 @@ static int sysfsopen(int fd, const char *name)
   }
   if (proc->iotab[fd] != NULL)
   {
-    ioref(&(proc->iotab[fd]));
+    ioref(proc->iotab[fd]);
     kprintf("File already opened\n");
     return fd;
   }

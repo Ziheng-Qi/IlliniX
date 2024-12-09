@@ -53,6 +53,7 @@ int fs_open(const char *name, struct io_intf **io)
 {
   // search the file in the directory
 
+  lock_acquire(&fs_lk);
   static const struct io_ops fs_io_ops = {
       .close = fs_close,
       .read = fs_read,
@@ -83,11 +84,9 @@ int fs_open(const char *name, struct io_intf **io)
       uint64_t position = fs_base + BLOCK_SIZE + boot_block->dir_entries[i].inode * BLOCK_SIZE;
       // console_printf("Seeking to position: %d\n", position);
       uint64_t file_position = 0;
-      lock_acquire(&fs_lk);
       ioseek(fs_io, position);
       inode_t* file_inode = kmalloc(BLOCK_SIZE);
       ioread_full(fs_io, file_inode, BLOCK_SIZE);
-      lock_release(&fs_lk);
       uint64_t file_size = (uint64_t)(file_inode->byte_len);
       uint64_t flag = INUSE;
       for (int j = 0; j < MAX_FILE_OPEN; j++)
@@ -99,12 +98,14 @@ int fs_open(const char *name, struct io_intf **io)
           file_desc_tab[j].inode_num = inode_num;
           file_desc_tab[j].flag = flag;
           file_desc_tab[j].io = file_io;
+          lock_release(&fs_lk);
           return 0;
         }
       }
     }
   }
   // console_printf("File not found\n");
+  lock_release(&fs_lk);
   return -ENOENT;
 }
 
@@ -151,6 +152,7 @@ void fs_close(struct io_intf *io)
 
 long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 {
+  lock_acquire(&fs_lk);
   int result = 0;
   for (int i = 0; i < MAX_FILE_OPEN; i++)
   {
@@ -160,21 +162,22 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       file_t *file = &file_desc_tab[i];
       uint64_t file_position = file->file_position;
       uint64_t inode_num = file->inode_num;
-      lock_acquire(&fs_lk);
+
       // Seek to the inode position
       result = ioseek(fs_io, fs_base + BLOCK_SIZE + inode_num * BLOCK_SIZE);
 
       if (result < 0)
       {
+        lock_release(&fs_lk);
         return result;
       }
       // Read the inode
       inode_t *file_inode = kmalloc(sizeof(inode_t));
       result = ioread_full(fs_io, file_inode, BLOCK_SIZE);
-      lock_release(&fs_lk);
 
       if (result < 0)
       {
+        lock_release(&fs_lk);
         return result;
       }
       // Calculate the number of blocks written based on the file position
@@ -189,12 +192,11 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       }
 
       // Seek to the data block position
-      lock_acquire(&fs_lk);
-
       result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[written_blocks] * BLOCK_SIZE);
 
       if (result < 0)
       {
+        lock_release(&fs_lk);
         return result;
       }
       // Read the data block
@@ -203,14 +205,15 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       result = ioctl(fs_io, IOCTL_GETPOS, &pos);
       if (result < 0)
       {
+        lock_release(&fs_lk);
         return result;
       }
 
       result = ioread_full(fs_io, data_block, BLOCK_SIZE);
-      lock_release(&fs_lk);
 
       if (result < 0)
       {
+        lock_release(&fs_lk);
         return result;
       }
       uint64_t bytes_written = 0;
@@ -221,19 +224,18 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
         if (written_bytes == BLOCK_SIZE)
         {
           // Write the current data block to disk
-          lock_acquire(&fs_lk);
-
           result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[written_blocks] * BLOCK_SIZE);
 
           if (result < 0)
           {
+            lock_release(&fs_lk);
             return result;
           }
           result = iowrite(fs_io, data_block, BLOCK_SIZE);
-          lock_release(&fs_lk);
 
           if (result < 0)
           {
+            lock_release(&fs_lk);
             return result;
           }
           // Move to the next block
@@ -247,19 +249,20 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
           }
 
           // Seek to the next data block position
-          lock_acquire(&fs_lk);
           result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[written_blocks] * BLOCK_SIZE);
 
           if (result < 0)
           {
+            lock_release(&fs_lk);
             return result;
           }
 
           // Read the next data block
           result = ioread_full(fs_io, data_block, BLOCK_SIZE);
-          lock_release(&fs_lk);
+
           if (result < 0)
           {
+            lock_release(&fs_lk);
             return result;
           }
         }
@@ -269,7 +272,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
         written_bytes++;
         bytes_written++;
       }
-      lock_acquire(&fs_lk);
+
       result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[written_blocks] * BLOCK_SIZE);
 
       if (result < 0)
@@ -279,20 +282,22 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
       }
 
       result = iowrite(fs_io, data_block, BLOCK_SIZE);
-      lock_release(&fs_lk);
+
       if (result < 0)
       {
+        lock_release(&fs_lk);
         return result;
       }
 
       // Update the file position
       // console_printf("n: %d\n", n);
-      kprintf("file position: %d\n", file->file_position);
       file->file_position += n;
       // console_printf("file position: %d\n", file->file_position);
+      lock_release(&fs_lk);
       return n;
     }
   }
+  lock_release(&fs_lk);
   return -ENOENT;
 }
 
@@ -313,6 +318,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 
 long fs_read(struct io_intf *io, void *buf, unsigned long n)
 {
+  lock_acquire(&fs_lk);
   int result = 0;
   // Loop through the file descriptor table to find the matching io interface
   for (int i = 0; i < MAX_FILE_OPEN; i++)
@@ -324,12 +330,11 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       uint64_t file_position = file->file_position; // Current position in the file
       uint64_t inode_num = file->inode_num;         // Inode number of the file
       // Seek to the inode location in the filesystem
-      lock_acquire(&fs_lk);
-
       result = ioseek(fs_io, fs_base + BLOCK_SIZE + inode_num * BLOCK_SIZE);
 
       if (result < 0)
       {
+        lock_release(&fs_lk);
         return result;
       }
 
@@ -338,10 +343,10 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       memset(file_inode, 0, sizeof(inode_t));
 
       result = ioread_full(fs_io, file_inode, BLOCK_SIZE); // Read the inode data
-      lock_release(&fs_lk);
 
       if (result < 0)
       {
+        lock_release(&fs_lk);
         return result;
       }
       // Calculate the number of blocks and bytes to read based on the file position
@@ -352,6 +357,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       data_block_t* data_block = kmalloc(sizeof(data_block_t));
       if (read_blocks == sizeof(file_inode->data_block_num) / sizeof(file_inode->data_block_num[0]))
       {
+        lock_release(&fs_lk);
         return -EINVAL;
       }
       // check if the file_position is greater than the file size
@@ -361,12 +367,12 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         // Zero byte read means EOF
         n = file_inode->byte_len - file_position;
       }
-      lock_acquire(&fs_lk);
 
       result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[read_blocks] * BLOCK_SIZE);
 
       if (result < 0)
       {
+        lock_release(&fs_lk);
         return result;
       }
       // console_printf("Reading from block: %d\n", file_inode.data_block_num[read_blocks]);
@@ -374,10 +380,10 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       fs_io->ops->ctl(fs_io, IOCTL_GETPOS, &pos);
 
       result = ioread_full(fs_io, data_block, BLOCK_SIZE); // Read the data block
-      lock_release(&fs_lk);
 
       if (result < 0)
       {
+        lock_release(&fs_lk);
         return result;
       }
 
@@ -395,10 +401,9 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
           if (read_blocks == MAX_INODES)
           {
             // If the file is full, return an error
+            lock_release(&fs_lk);
             return -EINVAL;
           }
-          lock_acquire(&fs_lk);
-
           // Seek to the next data block
           result = ioseek(fs_io, fs_base + BLOCK_SIZE + boot_block->num_inodes * BLOCK_SIZE + file_inode->data_block_num[read_blocks] * BLOCK_SIZE);
 
@@ -409,10 +414,10 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
           }
 
           result = ioread_full(fs_io, data_block, BLOCK_SIZE); // Read the next data block
-          lock_release(&fs_lk);
 
           if (result < 0)
           {
+            lock_release(&fs_lk);
             return result;
           }
         }
@@ -427,11 +432,13 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
       // Update the file position after reading
       // console_printf("added %d bytes to the buffer\n", bytes_read);
       file->file_position += n;
+      lock_release(&fs_lk);
 
       return n; // Return the number of bytes read
     }
   }
   // If the file descriptor is not found, return an error
+  lock_release(&fs_lk);
   return -ENOENT;
 }
 
@@ -456,6 +463,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
 
 int fs_ioctl(struct io_intf *io, int cmd, void *arg)
 {
+  lock_acquire(&fs_lk);
   for (int i = 0; i < MAX_FILE_OPEN; i++)
   {
     file_t *file = &(file_desc_tab[i]);
@@ -466,22 +474,28 @@ int fs_ioctl(struct io_intf *io, int cmd, void *arg)
       switch (cmd)
       {
       case IOCTL_GETLEN:
+        lock_release(&fs_lk);
         return fs_getlen(file, arg);
       case IOCTL_SETPOS:
+        lock_release(&fs_lk);
         return fs_setpos(file, arg);
       case IOCTL_GETPOS:
+        lock_release(&fs_lk);
         return fs_getpos(file, arg);
       case IOCTL_GETBLKSZ:
+        lock_release(&fs_lk);
         return fs_getblksz(file, arg);
       case IOCTL_GETREFCNT:
         *(uint64_t *)arg = file_io->refcnt;
-        kprintf("refcnt: %d\n", file_io->refcnt);
-        return file_io->refcnt;
+        lock_release(&fs_lk);
+        return 0;
       default:
+        lock_release(&fs_lk);
         return -EINVAL;
       }
     }
   }
+  lock_release(&fs_lk);
   return -ENOTSUP;
 }
 
