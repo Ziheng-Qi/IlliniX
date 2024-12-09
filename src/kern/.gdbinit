@@ -36,7 +36,7 @@ end
 document si_n_rv
     Step N instructions and disassemble the last one.
 end
-define reconnect_tcp
+define rrst
     target remote tcp::26000
 end
 

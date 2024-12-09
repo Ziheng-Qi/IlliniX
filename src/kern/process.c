@@ -188,7 +188,8 @@ int process_fork(const struct trap_frame * parent_tfr){
         if (child_iotab[i] != NULL)
         {
             ioref(child_iotab[i]);
-            kprintf("io ref count: %d\n", child_iotab[i]->refcnt);
+            // kprintf("io ref count: %d\n", child_iotab[i]->refcnt);
+            kprintf("io ref count curr: %d on fd %d\n", current_process()->iotab[i]->refcnt, i);
         }
     }
 

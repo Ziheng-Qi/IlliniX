@@ -9,6 +9,7 @@ void main(void) {
     if (tid)
     {
 #if 1
+        _msgout("parent");
         enter++;
         char str[10];
         itoa(enter, str, 10);
@@ -44,6 +45,7 @@ void main(void) {
     else
     {
 #if 1
+        _msgout("child");
         // Open ser1 device as fd=0
         result = _devopen(0, "ser", 2);
         _msgout("running rule30: ser2 opened\n");

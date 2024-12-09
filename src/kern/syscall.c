@@ -201,6 +201,7 @@ static int sysioctl(int fd, const int cmd, void *arg)
   }
   struct io_intf *io = proc->iotab[fd];
   // kprintf("io at ioctl %p\n", io);
+  // kprintf("ioref %d\n", io->refcnt);
   int result = ioctl(io, cmd, arg);
 
   return result;
@@ -302,7 +303,7 @@ static int sysfsopen(int fd, const char *name)
   if (proc->iotab[fd] != NULL)
   {
     ioref(proc->iotab[fd]);
-    kprintf("File already opened\n");
+    // kprintf("File already opened\n");
     return fd;
   }
 
