@@ -87,8 +87,6 @@ static int sysclose(int fd)
   }
   struct io_intf *io = proc->iotab[fd];
   ioclose(io);
-  proc->iotab[fd] = NULL;
-  
   return 0;
 }
 
@@ -161,6 +159,7 @@ static int syswrite(int fd, const void *buf, size_t len)
   {
     return -EBADFD;
   }
+  kprintf("syswrite: fd=%d, buf=%p, len=%d\n", fd, buf, len);
   struct io_intf *io = proc->iotab[fd];
   int result = memory_validate_vptr_len(buf, len, PTE_U | PTE_W);
   if (result != 0)
@@ -246,7 +245,11 @@ static int sysdevopen(int fd, const char *name, int instno)
       }
     }
   }
-
+  if (proc->iotab[fd] != NULL)
+  {
+    ioref(&(proc->iotab[fd]));
+    return fd;
+  }
   int result = device_open(&(proc->iotab[fd]), name, instno);
   if (result < 0)
   {
@@ -273,16 +276,7 @@ static int sysdevopen(int fd, const char *name, int instno)
  */
 static int sysfsopen(int fd, const char *name)
 {
-  struct io_intf *io;
-  int result = fs_open(name, &io);
-  if (result < 0)
-  {
-    return result;
-  }
-  if (io == NULL)
-  {
-    return -ENODEV;
-  }
+
   struct process *proc = current_process();
   if (proc == NULL)
   {
@@ -304,8 +298,25 @@ static int sysfsopen(int fd, const char *name)
       }
     }
   }
+  if (proc->iotab[fd] != NULL)
+  {
+    ioref(&(proc->iotab[fd]));
+    kprintf("File already opened\n");
+    return fd;
+  }
 
+  struct io_intf *io;
+  int result = fs_open(name, &io);
+  if (result < 0)
+  {
+    return result;
+  }
+  if (io == NULL)
+  {
+    return -ENODEV;
+  }
   proc->iotab[fd] = io;
+
   return fd;
 }
 

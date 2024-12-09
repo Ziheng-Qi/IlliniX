@@ -57,7 +57,7 @@ struct io_term {
 #define IOCTL_SETPOS        4   // arg is pointer to uint64_t
 #define IOCTL_FLUSH         5   // arg is ignored
 #define IOCTL_GETBLKSZ      6   // arg is pointer to uint32_t
-
+#define IOCTL_GETREFCNT 7       // arg is pointer to uint32_t
 // EXPORTED FUNCTION DECLARATIONS
 //
 
