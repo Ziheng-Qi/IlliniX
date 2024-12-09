@@ -119,3 +119,14 @@ ld     tp, 34*8(sp) # tp should have the thread structure by now
 
 Encountered a bug such that the process won't exit, turns out that syscall forgot to increment `sepc` by 4.
 
+#### Virtual Memory
+We need to 'flush TLB' when we call free page.
+In order to demonstrate different page fault, we need to switch different cases in 'elf.c' to disable some flags. 
+
+### MP3_CP3
+
+#### Lock
+When declaring a lock struct, we cannot use a struct pointer type. 
+Encountered bug when testing lock by writing in a user program using fork. Lock did not work as planned. We found out that we should lock 'ioctl' in kfs and vioblk as well to ensure locking. 
+We should avoid accquiring new lock when the original lock hasn't been released. If we call 'ioctl', for example, we need to release the lock beforehand to ensure no repeatitive locking.
+
