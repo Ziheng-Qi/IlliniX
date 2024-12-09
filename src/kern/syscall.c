@@ -87,11 +87,7 @@ static int sysclose(int fd)
   }
   ioclose(proc->iotab[fd]);
 
-  if (proc->iotab[fd]->refcnt == 0)
-  {
-    kfree(proc->iotab[fd]);
-    proc->iotab[fd] = NULL;
-  }
+  proc->iotab[fd] = NULL;
 
   return 0;
 }
