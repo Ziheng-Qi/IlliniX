@@ -7,6 +7,7 @@
 
 int cat(char *filename)
 {
+  // _close(1);
   int result = _fsopen(1, filename);
   if (result < 0)
   { // Print error code
@@ -24,17 +25,17 @@ int cat(char *filename)
     printf("Error %d\n", -result);
     return result;
   }
-  n += 1;
+  // n += 1;
   char cat_buf[n];
-  result = _read(1, cat_buf, n - 1);
+  result = _read(1, cat_buf, n);
   if (result < 0)
   {
     puts("Failed to read file");
     printf("Error %d\n", -result);
     return result;
   }
-  cat_buf[n] = '\0';
   puts(cat_buf);
+  puts("\n");
   _close(1);
   return 0;
 }

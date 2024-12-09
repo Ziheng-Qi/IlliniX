@@ -61,15 +61,6 @@ int main()
     }
     else
     {
-      result = _fsopen(1, args[0]);
-      if (result < 0)
-      { // Print error code
-        if (result == -ENOENT)
-          printf("%s: File not found\n", args[0]);
-        else
-          printf("%s: Error %d\n", args[0], -result);
-        continue; // Continue the infinite loop for next cmd
-      }
 
       tid = _fork();
 
@@ -81,13 +72,20 @@ int main()
       // Child execs program
       if (tid == 0)
       {
-
+        result = _fsopen(1, args[0]);
+        if (result < 0)
+        { // Print error code
+          if (result == -ENOENT)
+            printf("%s: File not found\n", args[0]);
+          else
+            printf("%s: Error %d\n", args[0], -result);
+          continue; // Continue the infinite loop for next cmd
+        }
         _msgout("execute");
         _exec(1);
 
       } // 0 is child process. This process runs cmd
       // Parent waits for child to finish
-      _close(1);
 
       if (tid)
       {
