@@ -9,8 +9,17 @@
 #define DEBUG
 #endif
 
+
+
+#define INIT_PROC "fib"
+// #define INIT_PROC "init_fib_fib"
+// #define INIT_PROC "init_fib_rule30"
 // #define INIT_PROC "init_trek_rule30" // name of init process executable
-#define INIT_PROC "pipe_test"
+// #define INIT_PROC "lock_test"
+// #define INIT_PROC "refcnt"
+// #define INIT_PROC "pipe_test"
+
+
 #include "console.h"
 #include "thread.h"
 #include "device.h"
