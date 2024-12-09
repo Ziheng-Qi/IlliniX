@@ -53,12 +53,18 @@ int main()
       if (result < 0)
         continue;
     }
-    else if (strcmp(args[0], "edit") == 0)
+    else if (strcmp(args[0], "ls") == 0)
     {
-      result = edit(args[1]);
+      result = ls();
       if (result < 0)
         continue;
     }
+    // else if (strcmp(args[0], "edit") == 0)
+    // {
+    //   result = edit(args[1]);
+    //   if (result < 0)
+    //     continue;
+    // }
     else
     {
 

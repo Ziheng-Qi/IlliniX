@@ -489,6 +489,14 @@ int fs_ioctl(struct io_intf *io, int cmd, void *arg)
         *(uint64_t *)arg = file_io->refcnt;
         lock_release(&fs_lk);
         return 0;
+      case IOCTL_GETDENTRY:
+        memcpy(arg, boot_block->dir_entries, sizeof(dentry_t) * boot_block->num_dentry);
+        lock_release(&fs_lk);
+        return 0;
+      case IOCTL_GETDENTRY_NUM:
+        *(uint64_t *)arg = boot_block->num_dentry;
+        lock_release(&fs_lk);
+        return 0;
       default:
         lock_release(&fs_lk);
         return -EINVAL;
