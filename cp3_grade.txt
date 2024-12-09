@@ -1,3 +1,5 @@
+Hello!
+If you want, you can also read README.md to get more detailed explanation of testing out program
 
 TO TEST LOCKING:
 lock_test.c  
