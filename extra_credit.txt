@@ -40,4 +40,6 @@ Note: If accidentally type into the reading screen, it will show the characters 
         By pressing enter in the "writing line" screen to switch roles, these characters will show. 
         Becareful that typing enter in the reading screen will make it immediately switch from writing screen to reading screen after next time it switch from reading to writing.
 
-    
+Virtual Memory:
+We implement the two extra credit functions in virtmem: 'memory_validate_vptr_len' and 'memory_validate_vstr'. And we use them in syscall, in 'sysmsgout', 'sysread', and 'syswrite' specifically. System calls pass as parameters pointers in user memory. This is a vulnerability since the
+ kernel could read or write from invalid memory. Using the virtual memory validation functions can protect the kernel from malicous user programs.
