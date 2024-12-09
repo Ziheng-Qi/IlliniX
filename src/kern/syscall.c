@@ -9,6 +9,7 @@
 #include "fs.h"
 #include "timer.h"
 #include "memory.h"
+#include "pipe.h"
 
 #define PC_ALIGN 4
 /*
@@ -324,6 +325,51 @@ static int sysfsopen(int fd, const char *name)
   return fd;
 }
 
+static int syspipe(int fd)
+{
+  struct process *proc = current_process();
+  if (proc == NULL)
+  {
+    return -ENOENT;
+  }
+  if (fd >= MAX_FILE_OPEN)
+  {
+    return -EBADFD;
+  }
+  if (fd < 0)
+  {
+    // find the next empty entry of proc->iotab
+    for (int i = 0; i < MAX_FILE_OPEN; i++)
+    {
+      if (proc->iotab[i] == NULL)
+      {
+        fd = i;
+        break;
+      }
+    }
+  }
+  if (proc->iotab[fd] != NULL)
+  {
+    ioref(proc->iotab[fd]);
+    kprintf("Pipe already opened\n");
+    return fd;
+  }
+
+  struct io_intf *io;
+  int result = pipe_open(&io);
+  if (result < 0)
+  {
+    return result;
+  }
+  if (io == NULL)
+  {
+    return -ENODEV;
+  }
+  proc->iotab[fd] = io;
+
+  return fd;
+}
+
 /**
  * @brief Executes a process from a file descriptor.
  *
@@ -492,14 +538,15 @@ void syscall_handler(struct trap_frame *tfr)
   case SYSCALL_FSOPEN:
     tfr->x[TFR_A0] = sysfsopen((int)tfr->x[TFR_A0], (const char *)tfr->x[TFR_A1]);
     break;
+  case SYSCALL_PIPE:
+    tfr->x[TFR_A0] = syspipe((int)tfr->x[TFR_A0]);
+    break;
   case SYSCALL_EXEC:
     tfr->x[TFR_A0] = sysexec((int)tfr->x[TFR_A0]);
     break;
-  
   case SYSCALL_FORK:
     tfr->x[TFR_A0] = sysfork(tfr);
     break;
-
   case SYSCALL_WAIT:
     tfr->x[TFR_A0] = syswait((int)tfr->x[TFR_A0]);
     break;

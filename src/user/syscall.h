@@ -18,5 +18,6 @@ extern int _exec(int fd);
 extern int _fork(void);
 extern int _wait(int tid);
 extern int _usleep(unsigned long us);
+extern int _pipe(int fd);
 
 #endif // _SYSCALL_H_

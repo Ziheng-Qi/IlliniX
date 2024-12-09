@@ -72,6 +72,14 @@ _fork:
         ecall
         ret
 
+        .global _pipe
+        .type   _pipe, @function
+
+_pipe:
+        li      a7, SYSCALL_PIPE
+        ecall
+        ret
+
         .global _wait
         .type   _wait, @function
 _wait:

@@ -30,7 +30,8 @@ ALL_TARGETS = \
 	bin/init_fib_fib \
 	bin/fib \
 	bin/shell \
-	bin/refcnt
+	bin/refcnt \
+	bin/pipe_test \
 
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
@@ -81,6 +82,9 @@ bin/init_fib_fib: $(ULIB_OBJS) init_fib_fib.o
 	$(LD) -T user.ld -o $@ $^
 
 bin/shell: $(ULIB_OBJS) shell.o 
+	$(LD) -T user.ld -o $@ $^
+
+bin/pipe_test: $(ULIB_OBJS) pipe_test.o
 	$(LD) -T user.ld -o $@ $^
 
 clean:

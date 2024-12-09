@@ -40,4 +40,4 @@ define rrst
     target remote tcp::26000
 end
 
-add-symbol-file ../user/bin/init_fib_rule30 0x00000000C0000000
+add-symbol-file ../user/bin/pipe_test 0x00000000C0000000

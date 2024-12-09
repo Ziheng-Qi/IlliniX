@@ -10,9 +10,7 @@
 #endif
 
 // #define INIT_PROC "init_trek_rule30" // name of init process executable
-// #define INIT_PROC "lock_test"
-// #define INIT_PROC "refcnt"
-#define INIT_PROC "shell"
+#define INIT_PROC "pipe_test"
 #include "console.h"
 #include "thread.h"
 #include "device.h"
