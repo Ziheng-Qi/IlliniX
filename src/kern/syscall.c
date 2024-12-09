@@ -159,7 +159,6 @@ static int syswrite(int fd, const void *buf, size_t len)
   {
     return -EBADFD;
   }
-  kprintf("syswrite: fd=%d, buf=%p, len=%d\n", fd, buf, len);
   struct io_intf *io = proc->iotab[fd];
   int result = memory_validate_vptr_len(buf, len, PTE_U | PTE_W);
   if (result != 0)

@@ -287,6 +287,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 
       // Update the file position
       // console_printf("n: %d\n", n);
+      kprintf("file position: %d\n", file->file_position);
       file->file_position += n;
       // console_printf("file position: %d\n", file->file_position);
       return n;
