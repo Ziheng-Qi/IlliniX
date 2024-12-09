@@ -7,7 +7,7 @@
 #include "termio.h"
 extern int cat(char *filename);
 extern int ls();
-
+extern int edit(char *filename);
 #define assert(c)                                                              \
   do                                                                           \
   {                                                                            \
