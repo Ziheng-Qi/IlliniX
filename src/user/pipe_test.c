@@ -1,6 +1,7 @@
 #include "syscall.h"
 #include "string.h"
 #include "stdlib.h"
+#include "pipe.h"
 
 void main() {
     int result;
@@ -37,7 +38,7 @@ void main() {
 
             _write(1,"\n",1);
             _write(1, child_read, strlen(child_read));
-            _ioctl(0, 8, NULL); // wait until buffer empty
+            _ioctl(0, PIPE_WAIT_EMPTY, NULL); // wait until buffer empty
             c = '\0';
             // child read until enter
             while(1){

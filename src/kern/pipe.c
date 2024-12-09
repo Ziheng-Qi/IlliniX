@@ -1,16 +1,14 @@
 #include "lock.h"
 #include "io.h"
 #include "device.h"
+#include "pipe.h"
 #include "heap.h"
 #include "string.h"
-
-#define PIPESIZE 512
-#define PIPE_WAIT_EMPTY 8
 
 struct pipe {
     struct io_intf io_intf;
     struct lock buf_lock;
-    char data[PIPESIZE];
+    char data[PIPE_SIZE];
     size_t size_read;
     size_t size_written;
     struct condition not_empty;
@@ -37,6 +35,12 @@ static const struct io_ops pipe_ops = {
     .ctl = pipe_ioctl
 };
 
+/**
+ * @brief Open a pipe, allow communcation between two processes (from the same fork) if the pipe is created before fork,
+ * called on _pipe() syscall
+ * @param ioptr the pointer to the io interface to be filled in
+ * @return always 0, means success
+ */
 int pipe_open(struct io_intf ** ioptr) {
     struct pipe * pi;
     pi = kmalloc(sizeof(struct pipe));
@@ -44,7 +48,7 @@ int pipe_open(struct io_intf ** ioptr) {
 
     pi->size_read = 0;
     pi->size_written = 0;
-    memset(pi->data, 0, PIPESIZE);
+    memset(pi->data, 0, PIPE_SIZE);
     lock_init(&pi->buf_lock, "pipe_lock");
 
     *ioptr = &pi->io_intf;
@@ -52,13 +56,21 @@ int pipe_open(struct io_intf ** ioptr) {
     return 0;
 }
 
+/**
+ * @brief Read from pipe buffer, compatible with ioread
+ * @param io the io interface in the pipe struct to read from
+ * @param buf the buffer to read to
+ * @param bufsz the size of the buffer to read, but actually not used, just used to comply with ioread
+ * @note This function will block until there is data to read
+ * @return number of bytes read, if negative, error code
+ */
 long pipe_read(struct io_intf * io, void * buf, unsigned long bufsz) {
 
     lock_acquire(&((struct pipe *)io)->buf_lock); // wait for read to complete
     
     struct pipe * pi = (struct pipe *)io; // io_intf is the first member of struct pipe
 
-    if(bufsz > PIPESIZE) {
+    if(bufsz > PIPE_SIZE) {
         lock_release(&pi->buf_lock);
         return -EINVAL;
     }
@@ -83,12 +95,19 @@ long pipe_read(struct io_intf * io, void * buf, unsigned long bufsz) {
     return pi->size_read - initial_size_read;    
 }
 
+/**
+ * @brief Write to a pipe buffer indicated by the io interface in parameter, compatible with iowrite
+ * @param io the io interface in the pipe struct to write to
+ * @param buf the buffer to write to
+ * @param n number of bytes to write
+ * @return number of bytes written, if negative, error code
+ */
 long pipe_write(struct io_intf * io, const void * buf, unsigned long n){
     lock_acquire(&((struct pipe *)io)->buf_lock); // wait for write to complete
 
     struct pipe * pi = (struct pipe *)io; // io_intf is the first member of struct pipe
 
-    if(n > PIPESIZE) {
+    if(n > PIPE_SIZE) {
         lock_release(&pi->buf_lock);
         return -EINVAL;
     }
@@ -109,6 +128,12 @@ long pipe_write(struct io_intf * io, const void * buf, unsigned long n){
     return n;
 }
 
+/**
+ * @brief Perform ioctl on pipe, only support PIPE_WAIT_EMPTY, compatible with ioctl
+ * @param io the io interface in the pipe struct to perform ioctl on
+ * @param cmd the command to perform, please include pipe.h for the command
+ * @param arg the argument to the command, currently no use
+ */
 int pipe_ioctl(struct io_intf * io, int cmd, void * arg) {
     struct pipe * pi = (struct pipe *)io; // io_intf is the first member of struct pipe
 
@@ -120,6 +145,10 @@ int pipe_ioctl(struct io_intf * io, int cmd, void * arg) {
     return -ENOTSUP;
 }
 
+/**
+ * @brief Close the pipe, free the memory, compatible with ioclose
+ * @param io the io interface in the pipe struct to close
+ */
 void pipe_close(struct io_intf * io) {
     struct pipe * pi = (struct pipe *)io; // io_intf is the first member of struct pipe
     lock_acquire(&pi->buf_lock);
