@@ -9,5 +9,6 @@ cd ../util
 FILES_INBIN=$(find ./bin -type f -name "*" | xargs)
 echo $FILES_INBIN
 ./mkfs kfs.raw $FILES_INBIN
+rm -r bin
 mv kfs.raw ../kern
 cd ../kern
