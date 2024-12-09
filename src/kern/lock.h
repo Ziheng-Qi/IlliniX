@@ -42,6 +42,7 @@ static inline void lock_init(struct lock * lk, const char * name) {
  */
 static inline void lock_acquire(struct lock * lk) {
     // TODO: FIXME implement this
+    int s = intr_disable();
     trace("%s(<%s:%p>", __func__, lk->cond.name, lk);
     while (lk->tid != -1) {
         condition_wait(&lk->cond);
@@ -50,6 +51,7 @@ static inline void lock_acquire(struct lock * lk) {
     debug("Thread <%s:%d> acquired lock <%s:%p>",
         thread_name(running_thread()), running_thread(),
         lk->cond.name, lk);
+    intr_restore(s);
 }
 
 static inline void lock_release(struct lock * lk) {
