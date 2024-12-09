@@ -30,6 +30,8 @@ make run-kernel
 
 Besides the baseline user programs(like `init_fib_rule30` or such), we also provide `refcnt` for testing reference count under child and parent and `lock_test` for testing concurrency issue prevention accordingly to the tests in `MP3_CP3`.
 
+We also have a `shell` user program with `ls` `cat` and execution of programs like `trek` available just for information.
+
 #### Credits:
 
 This repo is constructed by Rick Xu (rickxu2), Ziheng Qi (zihengq2), and Ziyi Wang (zw67). Thank you all, no matter you are a CA, TA, or a student struggling in this amazing class, hard work will eventually pay off.
