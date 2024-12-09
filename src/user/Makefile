@@ -29,7 +29,8 @@ ALL_TARGETS = \
 	bin/init_fib_rule30 \
 	bin/init_fib_fib \
 	bin/fib \
-	bin/shell
+	bin/shell \
+	bin/refcnt
 
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
@@ -39,7 +40,10 @@ CFLAGS += -fno-asynchronous-unwind-tables
 CFLAGS += -I.
 
 all: $(ALL_TARGETS)
-	
+
+bin/refcnt : $(ULIB_OBJS) refcnt.o
+	$(LD) -T user.ld -o $@ $^
+
 bin/troll: $(ULIB_OBJS) troll.o
 	$(LD) -T user.ld -o $@ $^
 
