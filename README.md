@@ -1,8 +1,8 @@
-# ECE391 Group 3
+#Group 3
 
 #### Greetings
 
-Hello and welcome to the group repo for ECE 391 Fall 2024 group 3. Here are detailed instructions of how to run tests regarding this final MP:
+Here are detailed instructions of how to run tests regarding this final MP:
 
 
 
