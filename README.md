@@ -1,8 +1,7 @@
-#Group 3
 
 #### Greetings
 
-Here are detailed instructions of how to run tests regarding this final MP:
+Here are detailed instructions of how to run tests regarding this OS Kernel:
 
 
 
