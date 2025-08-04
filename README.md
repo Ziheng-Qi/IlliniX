@@ -113,6 +113,3 @@ This project was developed by:
 
 Special thanks to the course instructors, TAs, and CAs who provided guidance throughout this challenging but rewarding project. This implementation demonstrates a deep understanding of operating system principles and low-level system programming.
 
----
-
-*"Hard work will eventually pay off."* - The IlliniX Team
